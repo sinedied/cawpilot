@@ -1,6 +1,7 @@
 import type { CawPilotConfig } from '../core/config.js';
 import type { IncomingMessage } from '../types/index.js';
 import { SignalAdapter } from './signal.js';
+import { WhatsAppAdapter } from './whatsapp.js';
 
 export interface MessagingAdapter {
   start(onMessage: (message: IncomingMessage) => Promise<void>): Promise<void>;
@@ -12,6 +13,8 @@ export function createMessagingAdapter(config: CawPilotConfig): MessagingAdapter
   switch (config.messaging.platform) {
     case 'signal':
       return new SignalAdapter(config.messaging);
+    case 'whatsapp':
+      return new WhatsAppAdapter(config.messaging);
     default:
       throw new Error(`Unsupported messaging platform: ${config.messaging.platform}`);
   }

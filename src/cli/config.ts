@@ -22,7 +22,6 @@ function getDefaultConfig(): CawPilotConfig {
   return {
     messaging: {
       platform: 'signal',
-      signalApiUrl: 'http://localhost:8080',
       signalPhoneNumber: '',
     },
     github: {

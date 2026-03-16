@@ -32,10 +32,13 @@
   "license": "MIT",
   "dependencies": {
     "@github/copilot-sdk": "^0.1.32",
+    "@hapi/boom": "^10.0.1",
     "@inquirer/prompts": "^7.0.0",
     "@octokit/rest": "^21.0.0",
+    "@whiskeysockets/baileys": "^6.7.21",
     "commander": "^13.0.0",
     "localtunnel": "^2.0.2",
+    "signal-sdk": "^0.1.8",
     "simple-git": "^3.27.0",
     "zod": "^3.24.0"
   },

@@ -40,9 +40,10 @@ Built on the [GitHub Copilot SDK](https://github.com/github/copilot-sdk) for Nod
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) 24 or later
+- [GitHub CLI](https://cli.github.com/) (`gh`) installed and authenticated
 - [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli) installed and in your PATH
 - A [GitHub Copilot subscription](https://github.com/features/copilot#pricing) (free tier available)
-- [Docker](https://docs.docker.com/get-docker/) (for Signal integration and containerized deployment)
+- Java 25+ (macOS/Windows only — Linux uses native signal-cli binary)
 
 ### Installation
 
@@ -78,7 +79,7 @@ npm install -g cawpilot
 git clone https://github.com/sinedied/cawpilot.git
 cd cawpilot
 
-# Run with Docker Compose (includes Signal API sidecar)
+# Run with Docker Compose
 docker compose up -d
 
 # Then run setup inside the container
@@ -107,7 +108,7 @@ docker compose exec cawpilot cawpilot setup
 
 | Component | Description |
 |---|---|
-| **Messaging Adapters** | Pluggable adapters for Signal (via signal-cli-rest-api), WhatsApp, Telegram |
+| **Messaging Adapters** | Pluggable adapters for Signal (via built-in signal-cli) and WhatsApp (via Baileys), with Telegram planned |
 | **Agent Core** | Wraps the Copilot SDK — manages sessions, tools, hooks, and system prompts |
 | **Skill Registry** | Loads and manages skills from `.cawpilot/skills/` |
 | **Workspace Manager** | Clones repos, manages branches with safe prefix enforcement |
@@ -115,7 +116,11 @@ docker compose exec cawpilot cawpilot setup
 
 ### Signal Integration
 
-CawPilot uses [signal-cli-rest-api](https://github.com/bbernhard/signal-cli-rest-api) as a sidecar Docker container. It exposes a REST API for sending/receiving Signal messages, and supports linking as a secondary device via QR code — no new phone number required.
+CawPilot uses [signal-sdk](https://github.com/benoitpetit/signal-sdk) which embeds signal-cli directly — no separate Docker container or external service needed. On install, the correct signal-cli binary is downloaded automatically. The setup wizard links CawPilot as a secondary Signal device via QR code — no new phone number required.
+
+### WhatsApp Integration
+
+CawPilot uses [Baileys](https://github.com/WhiskeySockets/Baileys) — a pure Node.js/TypeScript library that communicates with WhatsApp Web via WebSocket. No browser, no Puppeteer, no external binaries. On first start, a QR code appears in the terminal to link as a secondary device.
 
 ## Skills
 
@@ -150,7 +155,7 @@ Configuration is stored in `.cawpilot/config.json`:
 {
   "messaging": {
     "platform": "signal",
-    "signalApiUrl": "http://localhost:8080"
+    "signalPhoneNumber": "+1234567890"
   },
   "github": {
     "repos": ["owner/repo-1", "owner/repo-2"],
@@ -170,14 +175,12 @@ Configuration is stored in `.cawpilot/config.json`:
 
 | Variable | Description |
 |---|---|
-| `GITHUB_TOKEN` | GitHub personal access token |
-| `SIGNAL_API_URL` | URL of the signal-cli-rest-api instance |
 | `SIGNAL_PHONE_NUMBER` | Your Signal phone number (international format) |
 | `CAWPILOT_BRANCH_PREFIX` | Branch prefix override (default: `ocp-`) |
 
 ## Docker
 
-The `docker-compose.yml` bundles CawPilot with the Signal API sidecar:
+The `docker-compose.yml` runs CawPilot as a self-contained service (signal-cli is embedded):
 
 ```yaml
 services:
@@ -186,20 +189,10 @@ services:
     volumes:
       - ./workspace:/app/workspace
       - ./.cawpilot:/app/.cawpilot
+      - signal-data:/root/.local/share/signal-cli
     environment:
       - GITHUB_TOKEN
-      - SIGNAL_API_URL=http://signal-api:8080
-    depends_on:
-      - signal-api
-
-  signal-api:
-    image: bbernhard/signal-cli-rest-api:latest
-    environment:
-      - MODE=json-rpc
-    ports:
-      - "8080:8080"
-    volumes:
-      - signal-data:/home/.local/share/signal-cli
+      - SIGNAL_PHONE_NUMBER
 
 volumes:
   signal-data:

@@ -10,29 +10,50 @@ export async function runSetup(): Promise<void> {
   const platform = await select({
     message: 'Choose a messaging platform:',
     choices: [
-      { name: 'Signal (recommended)', value: 'signal' as const },
-      { name: 'WhatsApp (coming soon)', value: 'whatsapp' as const, disabled: true },
+      { name: 'Signal', value: 'signal' as const },
+      { name: 'WhatsApp', value: 'whatsapp' as const },
       { name: 'Telegram (coming soon)', value: 'telegram' as const, disabled: true },
     ],
   });
 
   // Step 2: Signal-specific setup
-  let signalApiUrl = 'http://localhost:8080';
   let signalPhoneNumber = '';
 
   if (platform === 'signal') {
-    signalApiUrl = await input({
-      message: 'Signal API URL:',
-      default: 'http://localhost:8080',
-    });
-
     signalPhoneNumber = await input({
       message: 'Your Signal phone number (international format, e.g. +1234567890):',
     });
 
-    console.log('\n📱 To link Signal, open this URL in your browser:');
-    console.log(`   ${signalApiUrl}/v1/qrcodelink?device_name=cawpilot`);
-    console.log('   Then scan the QR code from Signal > Settings > Linked Devices\n');
+    const shouldLink = await confirm({
+      message: 'Link CawPilot as a secondary Signal device now?',
+      default: true,
+    });
+
+    if (shouldLink) {
+      console.log('\n📱 Linking Signal device...');
+      console.log('   A QR code will appear — scan it from Signal > Settings > Linked Devices\n');
+
+      const { SignalCli } = await import('signal-sdk');
+      const signal = new SignalCli(signalPhoneNumber);
+      try {
+        await signal.deviceLink({ name: 'cawpilot' });
+        console.log('\n✅ Signal device linked successfully!\n');
+      } catch (error) {
+        console.error('\n⚠️  Device linking failed:', error);
+        console.log('   You can retry later with: npx signal-sdk connect "cawpilot"\n');
+      } finally {
+        await signal.gracefulShutdown().catch(() => {});
+      }
+    } else {
+      console.log('\n   You can link later with: npx signal-sdk connect "cawpilot"\n');
+    }
+  }
+
+  // Step 2b: WhatsApp-specific setup
+  if (platform === 'whatsapp') {
+    console.log('\n📱 WhatsApp uses Baileys (pure Node.js, no external dependencies).');
+    console.log('   On first start, a QR code will appear in the terminal.');
+    console.log('   Scan it from WhatsApp > Settings > Linked Devices > Link a Device\n');
   }
 
   // Step 3: GitHub authentication via GitHub CLI
@@ -67,7 +88,6 @@ export async function runSetup(): Promise<void> {
   const config: CawPilotConfig = {
     messaging: {
       platform,
-      signalApiUrl,
       signalPhoneNumber,
     },
     github: {

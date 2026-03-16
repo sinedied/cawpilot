@@ -24,9 +24,9 @@ src/
 │   └── config.ts         # Config types and defaults
 ├── messaging/
 │   ├── adapter.ts        # Abstract MessagingAdapter interface
-│   ├── signal.ts         # Signal adapter (signal-cli-rest-api REST client)
+│   ├── signal.ts         # Signal adapter (signal-sdk, built-in signal-cli)
 │   ├── telegram.ts       # Telegram adapter (future)
-│   └── whatsapp.ts       # WhatsApp adapter (future)
+│   └── whatsapp.ts       # WhatsApp adapter (Baileys, pure Node.js)
 ├── skills/
 │   ├── registry.ts       # Loads skills from .cawpilot/skills/
 │   ├── tunnel.ts         # Local tunnel skill (localtunnel)
@@ -47,7 +47,9 @@ docker/                   # Dockerfile and docker-compose.yml
 - **Runtime**: Node.js 24+ with ESM modules
 - **Language**: TypeScript 5.x (strict mode)
 - **Agent engine**: `@github/copilot-sdk` — wraps Copilot CLI via JSON-RPC
-- **Signal backend**: `signal-cli-rest-api` Docker container (REST API)
+- **Signal backend**: `signal-sdk` npm package — embeds signal-cli, auto-downloads binary on install
+- **WhatsApp backend**: `@whiskeysockets/baileys` — pure Node.js/TypeScript WebSocket client for WhatsApp Web
+- **GitHub auth**: GitHub CLI (`gh`) for authentication
 - **GitHub API**: `octokit` / `@octokit/rest`
 - **Git operations**: `simple-git`
 - **CLI framework**: `commander` for CLI commands
@@ -70,7 +72,7 @@ docker/                   # Dockerfile and docker-compose.yml
 ## Challenges and Mitigation Strategies
 
 - **Copilot CLI dependency**: The SDK requires `copilot` CLI in PATH. Docker image must include it. For local dev, document installation steps clearly.
-- **Signal linking**: signal-cli-rest-api requires QR code scan from phone to link as secondary device. The onboarding CLI must guide users through this (open browser to QR endpoint).
+- **Signal linking**: signal-sdk uses signal-cli's built-in device linking which displays a QR code in the terminal. The onboarding CLI triggers this via `signal.deviceLink()`. On macOS/Windows, Java 25+ is required; on Linux the native binary is used.
 - **Long-running sessions**: Copilot sessions can be long-lived. Use infinite sessions with auto-compaction. Handle reconnection gracefully.
 - **Message size limits**: Signal has message size limits. Long agent responses must be chunked into multiple messages.
 

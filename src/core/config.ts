@@ -8,8 +8,8 @@ export interface CawPilotConfig {
 
 export interface MessagingConfig {
   platform: 'signal' | 'whatsapp' | 'telegram';
-  signalApiUrl?: string;
   signalPhoneNumber?: string;
+  whatsappAuthDir?: string;
 }
 
 export interface GitHubConfig {
