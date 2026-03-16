@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.DS_Store
+TODO
+*.env*
+output/
+*.pyc
+.cawpilot/
+.agents/

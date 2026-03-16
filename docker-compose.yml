@@ -1,0 +1,28 @@
+services:
+  cawpilot:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    volumes:
+      - ./workspace:/app/workspace
+      - ./.cawpilot:/app/.cawpilot
+    environment:
+      - GITHUB_TOKEN
+      - SIGNAL_API_URL=http://signal-api:8080
+      - SIGNAL_PHONE_NUMBER
+    depends_on:
+      - signal-api
+    restart: unless-stopped
+
+  signal-api:
+    image: bbernhard/signal-cli-rest-api:latest
+    environment:
+      - MODE=json-rpc
+    ports:
+      - "8080:8080"
+    volumes:
+      - signal-data:/home/.local/share/signal-cli
+    restart: unless-stopped
+
+volumes:
+  signal-data:
