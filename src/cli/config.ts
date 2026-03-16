@@ -1,8 +1,17 @@
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import type { CawPilotConfig } from '../core/config.js';
 
 const CONFIG_PATH = join(process.cwd(), '.cawpilot', 'config.json');
+
+export async function hasExistingConfig(): Promise<boolean> {
+  try {
+    await access(CONFIG_PATH);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export async function loadConfig(): Promise<CawPilotConfig> {
   try {

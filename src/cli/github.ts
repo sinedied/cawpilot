@@ -33,7 +33,7 @@ export async function ensureGitHubAuth(): Promise<void> {
   console.log(`\n✅ Authenticated as ${username}\n`);
 }
 
-export async function selectRepos(): Promise<string[]> {
+export async function selectRepos(preSelected: string[] = []): Promise<string[]> {
   const wantRepos = await confirm({
     message: 'Connect GitHub repositories?',
     default: true,
@@ -48,13 +48,13 @@ export async function selectRepos(): Promise<string[]> {
 
   if (allRepos.length === 0) {
     console.log('No repositories found.');
-    return [];
+    return preSelected;
   }
 
   console.log(`   Found ${allRepos.length} repositories.\n`);
   console.log('   Type to filter, space to toggle, enter to confirm.\n');
 
-  const selected = await searchableCheckbox(allRepos);
+  const selected = await searchableCheckbox(allRepos, new Set(preSelected));
   return selected;
 }
 
@@ -118,9 +118,9 @@ async function fetchRepos(): Promise<string[]> {
   }
 }
 
-async function searchableCheckbox(repos: string[]): Promise<string[]> {
+async function searchableCheckbox(repos: string[], initial: Set<string> = new Set()): Promise<string[]> {
   let filter = '';
-  let selected = new Set<string>();
+  let selected = new Set<string>(initial);
 
   while (true) {
     const filtered = filter

@@ -7,6 +7,16 @@ export async function main() {
   const messaging = createMessagingAdapter(config);
   const agent = await createAgent(config);
 
+  const shutdown = async () => {
+    console.log('\nShutting down...');
+    await messaging.stop();
+    await agent.stop();
+    process.exit(0);
+  };
+
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+
   await messaging.start(async (message) => {
     const response = await agent.handleMessage(message);
     await messaging.send(message.from, response);

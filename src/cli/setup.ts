@@ -1,14 +1,25 @@
 import { select, input, checkbox, confirm } from '@inquirer/prompts';
-import { saveConfig } from './config.js';
+import { loadConfig, saveConfig, hasExistingConfig } from './config.js';
 import { ensureGitHubAuth, selectRepos } from './github.js';
 import type { CawPilotConfig } from '../core/config.js';
 
 export async function runSetup(): Promise<void> {
-  console.log('\n🐦 CawPilot Setup\n');
+  const existing = await hasExistingConfig();
+  const current = await loadConfig();
+
+  if (existing) {
+    console.log('\n🐦 CawPilot Setup (reconfigure)\n');
+    console.log(`   Current platform: ${current.messaging.platform}`);
+    console.log(`   Current repos: ${current.github.repos.length > 0 ? current.github.repos.join(', ') : 'none'}`);
+    console.log(`   Current skills: ${current.skills.length > 0 ? current.skills.join(', ') : 'none'}\n`);
+  } else {
+    console.log('\n🐦 CawPilot Setup\n');
+  }
 
   // Step 1: Choose messaging platform
   const platform = await select({
     message: 'Choose a messaging platform:',
+    default: current.messaging.platform,
     choices: [
       { name: 'Signal', value: 'signal' as const },
       { name: 'WhatsApp', value: 'whatsapp' as const },
@@ -17,16 +28,17 @@ export async function runSetup(): Promise<void> {
   });
 
   // Step 2: Signal-specific setup
-  let signalPhoneNumber = '';
+  let signalPhoneNumber = current.messaging.signalPhoneNumber ?? '';
 
   if (platform === 'signal') {
     signalPhoneNumber = await input({
       message: 'Your Signal phone number (international format, e.g. +1234567890):',
+      default: signalPhoneNumber || undefined,
     });
 
     const shouldLink = await confirm({
       message: 'Link CawPilot as a secondary Signal device now?',
-      default: true,
+      default: !existing,
     });
 
     if (shouldLink) {
@@ -59,43 +71,44 @@ export async function runSetup(): Promise<void> {
   // Step 3: GitHub authentication via GitHub CLI
   await ensureGitHubAuth();
 
-  // Step 4: Interactive repo selection
-  const repos = await selectRepos();
+  // Step 4: Interactive repo selection (pre-select existing repos)
+  const repos = await selectRepos(current.github.repos);
 
   // Step 5: Todo repo
   const todoRepo = await input({
     message: 'Private repo for todo list (e.g. your-user/todo):',
-    default: '',
+    default: current.github.todoRepo ?? '',
   });
 
   // Step 6: Choose skills
   const skills = await checkbox({
     message: 'Enable skills:',
     choices: [
-      { name: 'tunnel — Expose local ports with a public URL', value: 'tunnel', checked: true },
-      { name: 'todo — Manage tasks in a private GitHub repo', value: 'todo', checked: true },
-      { name: 'review — Code review assistance', value: 'review', checked: true },
-      { name: 'git — Git operations with branch safety', value: 'git', checked: true },
+      { name: 'tunnel — Expose local ports with a public URL', value: 'tunnel', checked: current.skills.includes('tunnel') || !existing },
+      { name: 'todo — Manage tasks in a private GitHub repo', value: 'todo', checked: current.skills.includes('todo') || !existing },
+      { name: 'review — Code review assistance', value: 'review', checked: current.skills.includes('review') || !existing },
+      { name: 'git — Git operations with branch safety', value: 'git', checked: current.skills.includes('git') || !existing },
     ],
   });
 
   // Step 7: Branch prefix
   const branchPrefix = await input({
     message: 'Branch prefix for safe operations:',
-    default: 'ocp-',
+    default: current.branching.prefix,
   });
 
   const config: CawPilotConfig = {
     messaging: {
       platform,
       signalPhoneNumber,
+      whatsappAuthDir: current.messaging.whatsappAuthDir,
     },
     github: {
       repos,
       todoRepo: todoRepo || undefined,
     },
     workspace: {
-      path: './workspace',
+      path: current.workspace.path,
     },
     branching: {
       prefix: branchPrefix,
