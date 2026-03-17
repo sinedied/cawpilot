@@ -20,6 +20,8 @@ export interface ToolContext {
 
 const sendMessageSchema = z.object({
   content: z.string().describe('The message content to send'),
+  channel: z.string().optional().describe('Target channel name (e.g. "cli", "telegram", "http"). Defaults to the originating channel.'),
+  sender: z.string().optional().describe('Target sender/chat ID. Defaults to the originating sender. For telegram, use the chat ID.'),
 });
 
 const updateTodoSchema = z.object({
@@ -42,21 +44,38 @@ const createPrSchema = z.object({
 export function buildTools(ctx: ToolContext) {
   return {
     send_message: {
-      description: 'Send a message back to the user through the originating channel',
+      description: 'Send a message to the user. By default sends to the originating channel, but can target any connected channel by name.',
       parameters: {
         type: 'object' as const,
         properties: {
           content: { type: 'string', description: 'The message content to send' },
+          channel: { type: 'string', description: 'Target channel name (e.g. "cli", "telegram", "http"). Defaults to the originating channel.' },
+          sender: { type: 'string', description: 'Target sender/chat ID. Defaults to the originating sender.' },
         },
         required: ['content'],
       },
       handler: async (args: unknown) => {
-        const { content } = sendMessageSchema.parse(args);
-        const channel = ctx.channels.get(ctx.sourceChannel);
+        const { content, channel: targetChannel, sender: targetSender } = sendMessageSchema.parse(args);
+        const chName = targetChannel ?? ctx.sourceChannel;
+        const chSender = targetSender ?? ctx.sourceSender;
+        const channel = ctx.channels.get(chName);
         if (channel) {
-          await channel.send(ctx.sourceSender, content);
+          await channel.send(chSender, content);
+          return { sent: true, channel: chName };
         }
-        return { sent: true };
+        return { sent: false, error: `Channel "${chName}" not found` };
+      },
+    },
+
+    list_channels: {
+      description: 'List all connected and available channels',
+      parameters: {
+        type: 'object' as const,
+        properties: {},
+      },
+      handler: async () => {
+        const channelNames = [...ctx.channels.keys()];
+        return { channels: channelNames, source: ctx.sourceChannel };
       },
     },
 

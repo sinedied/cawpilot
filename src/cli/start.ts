@@ -9,7 +9,7 @@ import { Orchestrator } from '../agent/orchestrator.js';
 import { CliChannel } from '../channels/cli.js';
 import { TelegramChannel } from '../channels/telegram.js';
 import { HttpChannel } from '../channels/http.js';
-import { renderDashboard, refreshDashboard } from './dashboard.js';
+import { renderDashboard, refreshDashboard, setNotification } from './dashboard.js';
 import type { Channel } from '../channels/types.js';
 import { logger } from '../utils/logger.js';
 
@@ -102,7 +102,7 @@ export async function runStart(workspacePath: string, options: StartOptions = { 
         sourceSender: sender,
         expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
       });
-
+      setNotification(chalk.cyan(`🔗 Pairing code: ${chalk.bold(newCode)} (valid 5 min)`));
       await channel.send(sender, `🔗 Pairing code: ${chalk.bold(newCode)}\nSend /pair ${newCode} from the channel you want to link. Valid for 5 minutes.`);
       return;
     }
@@ -137,7 +137,7 @@ export async function runStart(workspacePath: string, options: StartOptions = { 
     if (sourceChannel) {
       await sourceChannel.send(pair.sourceSender, `✅ A new ${channelName} user has been linked.`);
     }
-
+    setNotification(chalk.green(`\u2705 ${channelName} user linked successfully`));
     logger.info(`Paired ${channelName}/${sender} via code from ${pair.sourceChannel}/${pair.sourceSender}`);
   };
 
@@ -176,11 +176,10 @@ export async function runStart(workspacePath: string, options: StartOptions = { 
   if (options.debug) {
     // Debug mode: just log, no dashboard refresh
     console.log(renderDashboard(orchestrator, db, startTime));
-    console.log(chalk.dim('Press Ctrl+C to stop. Debug logging enabled.\n'));
+    console.log(chalk.dim('Debug logging enabled. Press Ctrl+C to stop.\n'));
   } else {
     // Normal mode: dashboard view with in-place refresh
-    console.log(renderDashboard(orchestrator, db, startTime));
-    console.log(chalk.dim('Press Ctrl+C to stop. Type messages below to chat.\n'));
+    process.stdout.write(renderDashboard(orchestrator, db, startTime));
   }
 
   const dashboardInterval = options.debug ? undefined : setInterval(() => {

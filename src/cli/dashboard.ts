@@ -4,7 +4,18 @@ import { getTaskCounts } from '../db/tasks.js';
 import { getMessageCount } from '../db/messages.js';
 import type Database from 'better-sqlite3';
 
-const DASHBOARD_LINES = 7;
+// Dashboard: 7 stats lines + 1 notification line + 1 prompt line = 9
+const DASHBOARD_LINES = 9;
+
+let notificationText = '';
+
+export function setNotification(text: string): void {
+  notificationText = text;
+}
+
+export function clearNotification(): void {
+  notificationText = '';
+}
 
 export function renderDashboard(
   orchestrator: Orchestrator,
@@ -15,6 +26,10 @@ export function renderDashboard(
   const counts = getTaskCounts(db);
   const messageCount = getMessageCount(db);
 
+  const notifLine = notificationText
+    ? ` ${notificationText}`
+    : '';
+
   const lines = [
     chalk.bold.cyan(' 🐦 CawPilot'),
     chalk.dim(` ─────────────────────────────`),
@@ -23,6 +38,8 @@ export function renderDashboard(
     ` ${chalk.dim('Tasks:')}    ${chalk.yellow(String(counts['in-progress']))} active · ${chalk.green(String(counts.completed))} done · ${chalk.red(String(counts.failed))} failed`,
     ` ${chalk.dim('Queue:')}    ${counts.pending} pending`,
     chalk.dim(` ─────────────────────────────`),
+    notifLine,
+    chalk.green('> '),
   ];
 
   return lines.join('\n');
@@ -30,7 +47,7 @@ export function renderDashboard(
 
 /**
  * Moves the cursor up to the dashboard area and re-renders in place,
- * without clearing any log output below.
+ * then repositions cursor at the prompt line.
  */
 export function refreshDashboard(
   orchestrator: Orchestrator,
@@ -38,9 +55,12 @@ export function refreshDashboard(
   startTime: Date,
 ): void {
   const content = renderDashboard(orchestrator, db, startTime);
-  // Move cursor up to overwrite the dashboard lines, then re-print
-  process.stdout.write(`\x1B[${DASHBOARD_LINES}A\x1B[0G`);
-  process.stdout.write(content + '\n');
+  // Save cursor, move to top of dashboard, clear from there, re-print, restore cursor
+  process.stdout.write(`\x1B[s`); // save cursor
+  process.stdout.write(`\x1B[${DASHBOARD_LINES}A\x1B[0G`); // move up
+  process.stdout.write(`\x1B[0J`); // clear from cursor to end
+  process.stdout.write(content);
+  process.stdout.write(`\x1B[u`); // restore cursor
 }
 
 function formatUptime(ms: number): string {

@@ -17,6 +17,7 @@ export class CliChannel implements Channel {
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
+      prompt: '',
     });
 
     this.rl.on('line', (line) => {
@@ -46,5 +47,7 @@ export class CliChannel implements Channel {
 
   async send(_sender: string, content: string): Promise<void> {
     console.log(`${chalk.cyan('CawPilot')}${chalk.dim(':')} ${content}`);
+    // Re-print prompt marker after output
+    process.stdout.write(chalk.green('> '));
   }
 }
