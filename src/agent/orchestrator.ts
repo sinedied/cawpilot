@@ -1,0 +1,220 @@
+import type Database from 'better-sqlite3';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { CawpilotConfig } from '../workspace/config.js';
+import type { Channel } from '../channels/types.js';
+import { getUnprocessedMessages, markMessagesProcessing } from '../db/messages.js';
+import { createTask, getActiveTasks, getAllTasks, type Task } from '../db/tasks.js';
+import { getDueScheduledTasks, updateScheduledTaskRun } from '../db/scheduled.js';
+import { createTaskSession } from './runtime.js';
+import { runTask } from './task-runner.js';
+import { logger } from '../utils/logger.js';
+
+const POLL_INTERVAL_MS = 5_000;
+const SCHEDULER_INTERVAL_MS = 60_000;
+
+export class Orchestrator {
+  private pollTimer: ReturnType<typeof setInterval> | undefined;
+  private schedulerTimer: ReturnType<typeof setInterval> | undefined;
+  private runningTasks = new Map<string, Promise<void>>();
+  private _processedCount = 0;
+
+  constructor(
+    private readonly config: CawpilotConfig,
+    private readonly db: Database.Database,
+    private readonly channels: Map<string, Channel>,
+  ) {}
+
+  get processedCount(): number {
+    return this._processedCount;
+  }
+
+  get activeTaskCount(): number {
+    return this.runningTasks.size;
+  }
+
+  start(): void {
+    logger.info('Orchestrator started');
+    this.pollTimer = setInterval(() => this.processMessages(), POLL_INTERVAL_MS);
+    this.schedulerTimer = setInterval(() => this.checkScheduledTasks(), SCHEDULER_INTERVAL_MS);
+
+    // Run immediately on start
+    this.processMessages();
+  }
+
+  stop(): void {
+    if (this.pollTimer) clearInterval(this.pollTimer);
+    if (this.schedulerTimer) clearInterval(this.schedulerTimer);
+    this.pollTimer = undefined;
+    this.schedulerTimer = undefined;
+    logger.info('Orchestrator stopped');
+  }
+
+  private async processMessages(): Promise<void> {
+    const messages = getUnprocessedMessages(this.db);
+    if (messages.length === 0) return;
+
+    // Check capacity
+    const activeTasks = getActiveTasks(this.db);
+    const inProgress = activeTasks.filter((t) => t.status === 'in-progress');
+    const availableSlots = this.config.maxConcurrency - inProgress.length;
+
+    if (availableSlots <= 0) {
+      logger.debug('All task slots full, deferring message processing');
+      return;
+    }
+
+    logger.info(`Processing ${messages.length} unprocessed message(s)`);
+
+    try {
+      const taskPlan = await this.triageMessages(messages);
+
+      for (const plan of taskPlan.slice(0, availableSlots)) {
+        const task = createTask(this.db, plan.title);
+        markMessagesProcessing(this.db, plan.messageIds, task.id);
+
+        const taskPromise = runTask(task, this.config, this.db, this.channels)
+          .then(() => {
+            this._processedCount++;
+          })
+          .finally(() => {
+            this.runningTasks.delete(task.id);
+            this.updateTodoFile();
+          });
+
+        this.runningTasks.set(task.id, taskPromise);
+      }
+
+      this.updateTodoFile();
+    } catch (error) {
+      logger.error(`Failed to process messages: ${error}`);
+    }
+  }
+
+  private async triageMessages(
+    messages: ReturnType<typeof getUnprocessedMessages>,
+  ): Promise<{ title: string; messageIds: string[] }[]> {
+    // For a single message, create a task directly without LLM triage
+    if (messages.length === 1) {
+      return [{
+        title: messages[0].content.slice(0, 100),
+        messageIds: [messages[0].id],
+      }];
+    }
+
+    // For multiple messages, use the LLM to group them into tasks
+    try {
+      const session = await createTaskSession({
+        config: this.config,
+        db: this.db,
+        channels: this.channels,
+        taskId: 'triage',
+        sourceChannel: messages[0].channel,
+        sourceSender: messages[0].sender,
+        systemPrompt: `You are a task triage system. Given a list of user messages, group them into tasks.
+Output ONLY a JSON array with objects containing "title" (short task description) and "messageIds" (array of message IDs to include).
+Group related messages together. Each message should appear in exactly one task.`,
+      });
+
+      const messageList = messages
+        .map((m) => `ID: ${m.id} | Channel: ${m.channel} | Sender: ${m.sender} | Content: ${m.content}`)
+        .join('\n');
+
+      const response = await session.sendAndWait({
+        prompt: `Group these messages into tasks:\n${messageList}`,
+      });
+      await session.disconnect();
+
+      if (response?.data?.content) {
+        const jsonMatch = response.data.content.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          return JSON.parse(jsonMatch[0]) as { title: string; messageIds: string[] }[];
+        }
+      }
+    } catch (error) {
+      logger.warn(`Triage via LLM failed, creating individual tasks: ${error}`);
+    }
+
+    // Fallback: one task per message
+    return messages.map((m) => ({
+      title: m.content.slice(0, 100),
+      messageIds: [m.id],
+    }));
+  }
+
+  private async checkScheduledTasks(): Promise<void> {
+    const dueTasks = getDueScheduledTasks(this.db);
+    for (const scheduled of dueTasks) {
+      logger.info(`Running scheduled task: ${scheduled.name}`);
+
+      const task = createTask(this.db, `[Scheduled] ${scheduled.name}`);
+
+      // Calculate next run (simple interval in minutes parsed from schedule)
+      const intervalMinutes = parseInt(scheduled.schedule, 10) || 60;
+      const nextRun = new Date(Date.now() + intervalMinutes * 60_000).toISOString();
+      updateScheduledTaskRun(this.db, scheduled.id, nextRun);
+
+      const taskPromise = this.runScheduledTask(task, scheduled.prompt)
+        .finally(() => {
+          this.runningTasks.delete(task.id);
+          this.updateTodoFile();
+        });
+
+      this.runningTasks.set(task.id, taskPromise);
+    }
+  }
+
+  private async runScheduledTask(task: Task, prompt: string): Promise<void> {
+    try {
+      const session = await createTaskSession({
+        config: this.config,
+        db: this.db,
+        channels: this.channels,
+        taskId: task.id,
+        sourceChannel: 'cli',
+        sourceSender: 'scheduler',
+        systemPrompt: `You are CawPilot running a scheduled task. Complete the task and report results.`,
+      });
+
+      await session.sendAndWait({ prompt });
+      await session.disconnect();
+      this._processedCount++;
+    } catch (error) {
+      logger.error(`Scheduled task ${task.id} failed: ${error}`);
+    }
+  }
+
+  private updateTodoFile(): void {
+    const tasks = getAllTasks(this.db);
+    const statusIcons: Record<string, string> = {
+      'pending': '⏳',
+      'in-progress': '🔄',
+      'completed': '✅',
+      'failed': '❌',
+      'need-info': '❓',
+    };
+
+    const lines = ['# CawPilot Tasks\n'];
+    const active = tasks.filter((t) => t.status !== 'completed' && t.status !== 'failed');
+    const done = tasks.filter((t) => t.status === 'completed' || t.status === 'failed');
+
+    if (active.length > 0) {
+      lines.push('## Active\n');
+      for (const t of active) {
+        lines.push(`- ${statusIcons[t.status] || '•'} **${t.title}** (${t.status})`);
+      }
+      lines.push('');
+    }
+
+    if (done.length > 0) {
+      lines.push('## Completed\n');
+      for (const t of done.slice(0, 20)) {
+        lines.push(`- ${statusIcons[t.status] || '•'} ${t.title}${t.result ? ` — ${t.result}` : ''}`);
+      }
+      lines.push('');
+    }
+
+    const todoPath = join(this.config.workspacePath, 'TODO.md');
+    writeFileSync(todoPath, lines.join('\n'), 'utf-8');
+  }
+}

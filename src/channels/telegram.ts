@@ -1,95 +1,76 @@
 import { Bot } from 'grammy';
-import { registerChannel, type Channel, type IncomingMessage } from './index.js';
-
-export interface TelegramChannelConfig {
-  botToken?: string;
-  allowedChatIds?: number[];
-}
+import { logger } from '../utils/logger.js';
+import type { Channel, MessageHandler } from './types.js';
 
 export class TelegramChannel implements Channel {
-  private readonly bot: Bot;
-  private readonly allowedChatIds: Set<number>;
+  readonly name = 'telegram';
+  private bot: Bot | undefined;
+  private linkedChatId: string | undefined;
 
-  constructor(config: Record<string, unknown>) {
-    const { botToken, allowedChatIds } = config as TelegramChannelConfig;
-    const token = botToken ?? process.env.TELEGRAM_BOT_TOKEN;
-    if (!token) {
-      throw new Error(
-        'Telegram bot token not found. Set it in config or TELEGRAM_BOT_TOKEN env var.\n' +
-        'Create a bot at https://t.me/botfather',
-      );
-    }
-
-    this.bot = new Bot(token);
-    this.allowedChatIds = new Set(allowedChatIds ?? []);
+  constructor(
+    private readonly token: string,
+    private readonly chatId?: string,
+  ) {
+    this.linkedChatId = chatId;
   }
 
-  async start(onMessage: (message: IncomingMessage) => Promise<void>): Promise<void> {
-    this.bot.on('message:text', async (ctx) => {
-      const chatId = ctx.chat.id;
+  async start(onMessage: MessageHandler): Promise<void> {
+    this.bot = new Bot(this.token);
 
-      if (this.allowedChatIds.size > 0 && !this.allowedChatIds.has(chatId)) {
+    this.bot.on('message:text', (ctx) => {
+      const chatId = ctx.chat.id.toString();
+      if (this.linkedChatId && chatId !== this.linkedChatId) {
+        logger.debug(`Ignoring message from unlinked chat ${chatId}`);
         return;
       }
 
-      if (this.allowedChatIds.size === 0) {
-        console.log(`Telegram message from chat ${chatId} (${ctx.from?.username ?? ctx.from?.first_name ?? 'unknown'})`);
-      }
-
-      await onMessage({
-        from: String(chatId),
-        text: ctx.message.text,
-        timestamp: ctx.message.date * 1000,
+      onMessage({
         channel: 'telegram',
+        sender: chatId,
+        content: ctx.message.text,
       });
     });
 
-    await this.bot.start({
-      onStart: (botInfo) => {
-        console.log(`Telegram bot @${botInfo.username} is running.`);
-        if (this.allowedChatIds.size === 0) {
-          console.log('No chat filter configured — bot will respond to anyone who messages it.');
-          console.log('Send it a message to see your chat ID, then add it to config to restrict access.');
-        }
-      },
+    this.bot.catch((err) => {
+      logger.error(`Telegram bot error: ${err.message}`);
     });
-  }
 
-  async send(to: string, text: string): Promise<void> {
-    const chatId = Number(to);
-    const chunks = chunkMessage(text, 4096);
-    for (const chunk of chunks) {
-      await this.bot.api.sendMessage(chatId, chunk);
-    }
+    await this.bot.start();
+    logger.info('Telegram channel started');
   }
 
   async stop(): Promise<void> {
-    await this.bot.stop();
+    await this.bot?.stop();
+    this.bot = undefined;
+    logger.debug('Telegram channel stopped');
+  }
+
+  async send(_sender: string, content: string): Promise<void> {
+    if (!this.bot || !this.linkedChatId) {
+      logger.warn('Telegram: cannot send, no linked chat');
+      return;
+    }
+
+    await this.bot.api.sendMessage(this.linkedChatId, content);
+  }
+
+  generatePairingCode(): string {
+    const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+    return code;
+  }
+
+  setPairingHandler(code: string, onPaired: (chatId: string) => void): void {
+    if (!this.bot) return;
+
+    this.bot.on('message:text', (ctx, next) => {
+      if (ctx.message.text.trim() === code && !this.linkedChatId) {
+        this.linkedChatId = ctx.chat.id.toString();
+        ctx.reply('✅ CawPilot linked! You can now send commands here.');
+        onPaired(this.linkedChatId);
+        logger.info(`Telegram paired with chat ${this.linkedChatId}`);
+        return;
+      }
+      return next();
+    });
   }
 }
-
-function chunkMessage(text: string, maxLength: number): string[] {
-  if (text.length <= maxLength) return [text];
-
-  const chunks: string[] = [];
-  let remaining = text;
-  while (remaining.length > 0) {
-    if (remaining.length <= maxLength) {
-      chunks.push(remaining);
-      break;
-    }
-    let breakPoint = remaining.lastIndexOf('\n', maxLength);
-    if (breakPoint === -1 || breakPoint < maxLength / 2) {
-      breakPoint = remaining.lastIndexOf(' ', maxLength);
-    }
-    if (breakPoint === -1) {
-      breakPoint = maxLength;
-    }
-    chunks.push(remaining.slice(0, breakPoint));
-    remaining = remaining.slice(breakPoint).trimStart();
-  }
-  return chunks;
-}
-
-// Self-register when imported
-registerChannel('telegram', (config) => new TelegramChannel(config));

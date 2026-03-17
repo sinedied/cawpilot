@@ -1,85 +1,177 @@
-import { input, checkbox } from '@inquirer/prompts';
-import { loadConfig, saveConfig, hasExistingConfig } from './config.js';
-import { ensureGitHubAuth, selectRepos } from './github.js';
-import type { CawPilotConfig } from '../core/config.js';
+import chalk from 'chalk';
+import ora from 'ora';
+import { input, confirm, checkbox } from '@inquirer/prompts';
+import { readdirSync, existsSync, cpSync, mkdirSync } from 'node:fs';
+import { join, basename } from 'node:path';
+import {
+  loadConfig,
+  saveConfig,
+  getSkillsPath,
+  type CawpilotConfig,
+  type ChannelConfig,
+} from '../workspace/config.js';
+import { ensureWorkspace, listUserRepos, getGitHubUser } from '../workspace/manager.js';
+import { logger } from '../utils/logger.js';
 
-export async function runSetup(): Promise<void> {
-  const existing = await hasExistingConfig();
-  const current = await loadConfig();
+export async function runSetup(workspacePath: string): Promise<void> {
+  console.log(chalk.bold.cyan('\n🐦 Welcome to CawPilot Setup\n'));
+  console.log(chalk.dim('This wizard will configure your CawPilot instance.\n'));
 
-  if (existing) {
-    console.log('\n🐦 CawPilot Setup (reconfigure)\n');
-    console.log(`   Current channel: ${current.channel.name}`);
-    console.log(`   Current repos: ${current.github.repos.length > 0 ? current.github.repos.join(', ') : 'none'}`);
-    console.log(`   Current skills: ${current.skills.length > 0 ? current.skills.join(', ') : 'none'}\n`);
+  ensureWorkspace(workspacePath);
+  const config = loadConfig(workspacePath);
+
+  // Step 1: Channels
+  console.log(chalk.bold('Step 1: Channels'));
+  console.log(chalk.dim('CLI channel is always available.\n'));
+
+  const channels = await setupChannels(config.channels);
+  config.channels = channels;
+
+  // Step 2: GitHub auth & repos
+  console.log(chalk.bold('\nStep 2: GitHub Repositories'));
+  const spinner = ora('Checking GitHub authentication...').start();
+  const user = getGitHubUser();
+
+  if (!user) {
+    spinner.fail('GitHub CLI not authenticated. Run: gh auth login');
+    return;
+  }
+  spinner.succeed(`Authenticated as ${chalk.green(user)}`);
+
+  const repos = await setupRepos();
+  config.repos = repos;
+
+  // Step 3: Persistence
+  console.log(chalk.bold('\nStep 3: Configuration Persistence'));
+  const enablePersistence = await confirm({
+    message: 'Persist configuration in a private GitHub repo? (recommended)',
+    default: true,
+  });
+
+  if (enablePersistence) {
+    const repoName = await input({
+      message: 'Repository name:',
+      default: `${user}/my-cawpilot`,
+    });
+    config.persistence = { enabled: true, repo: repoName };
   } else {
-    console.log('\n🐦 CawPilot Setup\n');
+    config.persistence = { enabled: false, repo: '' };
   }
 
-  // Step 1: Telegram channel setup
-  const currentToken = (current.channel.options?.botToken as string) ?? '';
+  // Step 4: Skills
+  console.log(chalk.bold('\nStep 4: Skills'));
+  const skills = await setupSkills(workspacePath);
+  config.skills = skills;
 
-  console.log('🤖 Telegram bot setup:');
-  console.log('   1. Open Telegram and message @BotFather');
-  console.log('   2. Send /newbot and follow the prompts');
-  console.log('   3. Copy the bot token and paste it below\n');
+  // Save
+  saveConfig(config);
+  copyEnabledSkills(workspacePath, skills);
 
-  const telegramBotToken = await input({
-    message: 'Telegram bot token:',
-    default: currentToken || undefined,
+  console.log(chalk.bold.green('\n✅ Setup complete!\n'));
+  console.log(chalk.dim('Start CawPilot with: cawpilot start\n'));
+}
+
+async function setupChannels(existing: ChannelConfig[]): Promise<ChannelConfig[]> {
+  const channels: ChannelConfig[] = [];
+
+  const enableTelegram = await confirm({
+    message: 'Enable Telegram channel?',
+    default: existing.some((c) => c.type === 'telegram' && c.enabled),
   });
 
-  // Step 2: GitHub authentication via GitHub CLI
-  await ensureGitHubAuth();
+  if (enableTelegram) {
+    const existingTg = existing.find((c) => c.type === 'telegram');
+    const token = await input({
+      message: 'Telegram Bot Token (from BotFather):',
+      default: existingTg?.telegramToken ?? '',
+    });
+    channels.push({
+      type: 'telegram',
+      enabled: true,
+      telegramToken: token,
+      telegramChatId: existingTg?.telegramChatId,
+    });
+  }
 
-  // Step 3: Interactive repo selection (pre-select existing repos)
-  const repos = await selectRepos(current.github.repos);
-
-  // Step 4: Todo repo
-  const todoRepo = await input({
-    message: 'Private repo for todo list (e.g. your-user/todo):',
-    default: current.github.todoRepo ?? '',
+  const enableHttp = await confirm({
+    message: 'Enable HTTP API channel?',
+    default: existing.some((c) => c.type === 'http' && c.enabled),
   });
 
-  // Step 5: Choose skills
-  const skills = await checkbox({
-    message: 'Enable skills:',
-    choices: [
-      { name: 'tunnel — Expose local ports with a public URL', value: 'tunnel', checked: current.skills.includes('tunnel') || !existing },
-      { name: 'todo — Manage tasks in a private GitHub repo', value: 'todo', checked: current.skills.includes('todo') || !existing },
-      { name: 'review — Code review assistance', value: 'review', checked: current.skills.includes('review') || !existing },
-      { name: 'git — Git operations with branch safety', value: 'git', checked: current.skills.includes('git') || !existing },
-    ],
+  if (enableHttp) {
+    const existingHttp = existing.find((c) => c.type === 'http');
+    const port = await input({
+      message: 'HTTP API port:',
+      default: String(existingHttp?.httpPort ?? 3000),
+    });
+    channels.push({
+      type: 'http',
+      enabled: true,
+      httpPort: parseInt(port, 10),
+    });
+  }
+
+  return channels;
+}
+
+async function setupRepos(): Promise<string[]> {
+  const spinner = ora('Fetching your repositories...').start();
+  const allRepos = listUserRepos();
+  spinner.stop();
+
+  if (allRepos.length === 0) {
+    console.log(chalk.yellow('No repositories found. You can add them later.'));
+    return [];
+  }
+
+  const selected = await checkbox({
+    message: 'Select repositories to connect:',
+    choices: allRepos.map((r) => ({ name: r, value: r })),
   });
 
-  // Step 6: Branch prefix
-  const branchPrefix = await input({
-    message: 'Branch prefix for safe operations:',
-    default: current.branching.prefix,
+  return selected;
+}
+
+async function setupSkills(workspacePath: string): Promise<string[]> {
+  const skillsRoot = join(workspacePath, '..', 'skills');
+  // Also check relative to the project root
+  const projectSkillsDir = join(process.cwd(), 'skills');
+  const skillsDir = existsSync(skillsRoot) ? skillsRoot : projectSkillsDir;
+
+  if (!existsSync(skillsDir)) {
+    console.log(chalk.dim('No skills directory found.'));
+    return [];
+  }
+
+  const available = readdirSync(skillsDir, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && existsSync(join(skillsDir, d.name, 'SKILL.md')))
+    .map((d) => d.name);
+
+  if (available.length === 0) {
+    console.log(chalk.dim('No skills available.'));
+    return [];
+  }
+
+  const selected = await checkbox({
+    message: 'Select skills to enable:',
+    choices: available.map((s) => ({ name: s, value: s, checked: true })),
   });
 
-  const config: CawPilotConfig = {
-    channel: {
-      name: 'telegram',
-      options: {
-        botToken: telegramBotToken || undefined,
-        allowedChatIds: (current.channel.options?.allowedChatIds as number[]) ?? [],
-      },
-    },
-    github: {
-      repos,
-      todoRepo: todoRepo || undefined,
-    },
-    workspace: {
-      path: current.workspace.path,
-    },
-    branching: {
-      prefix: branchPrefix,
-    },
-    skills,
-  };
+  return selected;
+}
 
-  await saveConfig(config);
-  console.log('\n✅ Configuration saved to .cawpilot/config.json');
-  console.log('   Run `cawpilot start` to begin.\n');
+function copyEnabledSkills(workspacePath: string, skills: string[]): void {
+  const targetDir = getSkillsPath(workspacePath);
+  mkdirSync(targetDir, { recursive: true });
+
+  const projectSkillsDir = join(process.cwd(), 'skills');
+
+  for (const skill of skills) {
+    const src = join(projectSkillsDir, skill);
+    const dest = join(targetDir, skill);
+    if (existsSync(src)) {
+      cpSync(src, dest, { recursive: true });
+      logger.debug(`Copied skill ${skill} to workspace`);
+    }
+  }
 }
