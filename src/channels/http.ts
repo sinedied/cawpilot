@@ -1,5 +1,6 @@
 import express, { type Request, type Response } from 'express';
 import type { Server } from 'node:http';
+import { timingSafeEqual } from 'node:crypto';
 import { logger } from '../utils/logger.js';
 import type { Channel, MessageHandler } from './types.js';
 
@@ -8,14 +9,33 @@ export class HttpChannel implements Channel {
   private server: Server | undefined;
   private onMessage: MessageHandler | undefined;
 
-  constructor(private readonly port: number = 3000) {}
+  constructor(
+    private readonly port: number = 3000,
+    private readonly apiKey?: string,
+  ) {}
 
   async start(onMessage: MessageHandler): Promise<void> {
     this.onMessage = onMessage;
     const app = express();
     app.use(express.json());
 
-    app.post('/api/messages', (req: Request, res: Response) => {
+    // API key auth middleware for message endpoint
+    const requireAuth = (req: Request, res: Response, next: () => void) => {
+      if (!this.apiKey) {
+        // No key configured — reject all requests
+        res.status(403).json({ error: 'HTTP channel not configured with an API key' });
+        return;
+      }
+
+      const provided = req.headers['x-api-key'] as string | undefined;
+      if (!provided || !safeCompare(provided, this.apiKey)) {
+        res.status(401).json({ error: 'Invalid or missing API key' });
+        return;
+      }
+      next();
+    };
+
+    app.post('/api/messages', requireAuth, (req: Request, res: Response) => {
       const { sender, content, attachments } = req.body as {
         sender?: string;
         content?: string;
@@ -65,8 +85,13 @@ export class HttpChannel implements Channel {
   }
 
   async send(_sender: string, _content: string): Promise<void> {
-    // HTTP channel is fire-and-forget; responses are sent via the API
-    // Outbound messages can be polled or pushed via webhooks
     logger.debug('HTTP channel does not support push messages');
   }
+}
+
+function safeCompare(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
 }

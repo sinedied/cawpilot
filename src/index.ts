@@ -28,8 +28,9 @@ program
 program
   .command('start')
   .description('Start the CawPilot bot server')
-  .action(async () => {
-    await runStart(getWorkspace());
+  .option('--debug', 'Enable verbose logging output')
+  .action(async (options: { debug?: boolean }) => {
+    await runStart(getWorkspace(), { debug: options.debug ?? false });
   });
 
 program

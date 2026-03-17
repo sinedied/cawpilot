@@ -1,6 +1,8 @@
 import chalk from 'chalk';
 import ora from 'ora';
-import { input, confirm, checkbox } from '@inquirer/prompts';
+import { randomBytes } from 'node:crypto';
+import { execSync } from 'node:child_process';
+import { input, confirm, checkbox, select } from '@inquirer/prompts';
 import { readdirSync, existsSync, cpSync, mkdirSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import {
@@ -11,6 +13,7 @@ import {
   type ChannelConfig,
 } from '../workspace/config.js';
 import { ensureWorkspace, listUserRepos, getGitHubUser } from '../workspace/manager.js';
+import { startRuntime, stopRuntime, listAvailableModels } from '../agent/runtime.js';
 import { logger } from '../utils/logger.js';
 
 export async function runSetup(workspacePath: string): Promise<void> {
@@ -63,6 +66,11 @@ export async function runSetup(workspacePath: string): Promise<void> {
   const skills = await setupSkills(workspacePath);
   config.skills = skills;
 
+  // Step 5: Copilot CLI & Model
+  console.log(chalk.bold('\nStep 5: Copilot Agent Runtime'));
+  const model = await setupCopilotAndModel(config.model);
+  config.model = model;
+
   // Save
   saveConfig(config);
   copyEnabledSkills(workspacePath, skills);
@@ -89,8 +97,9 @@ async function setupChannels(existing: ChannelConfig[]): Promise<ChannelConfig[]
       type: 'telegram',
       enabled: true,
       telegramToken: token,
-      telegramChatId: existingTg?.telegramChatId,
+      allowList: existingTg?.allowList ?? [],
     });
+    console.log(chalk.dim('  Use /pair in the CLI after starting to link your Telegram account.'));
   }
 
   const enableHttp = await confirm({
@@ -104,11 +113,15 @@ async function setupChannels(existing: ChannelConfig[]): Promise<ChannelConfig[]
       message: 'HTTP API port:',
       default: String(existingHttp?.httpPort ?? 3000),
     });
+    const apiKey = existingHttp?.httpApiKey ?? randomBytes(24).toString('base64url');
     channels.push({
       type: 'http',
       enabled: true,
       httpPort: parseInt(port, 10),
+      httpApiKey: apiKey,
     });
+    console.log(chalk.dim(`  HTTP API Key: ${chalk.bold(apiKey)}`));
+    console.log(chalk.dim('  Use this key in the X-Api-Key header for API requests.'));
   }
 
   return channels;
@@ -173,5 +186,52 @@ function copyEnabledSkills(workspacePath: string, skills: string[]): void {
       cpSync(src, dest, { recursive: true });
       logger.debug(`Copied skill ${skill} to workspace`);
     }
+  }
+}
+
+async function setupCopilotAndModel(currentModel: string): Promise<string> {
+  // Check Copilot CLI is installed
+  let copilotOk = false;
+  const spinner = ora('Checking Copilot CLI...').start();
+  try {
+    const version = execSync('copilot --version', { stdio: 'pipe' }).toString().trim();
+    spinner.succeed(`Copilot CLI: ${chalk.dim(version)}`);
+    copilotOk = true;
+  } catch {
+    spinner.fail('Copilot CLI not found.');
+    console.log(chalk.yellow('  Install it from: https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli'));
+    console.log(chalk.yellow('  CawPilot requires the Copilot CLI to operate.\n'));
+    return currentModel;
+  }
+
+  // Check auth by trying to start the runtime and list models
+  const modelSpinner = ora('Fetching available models...').start();
+  try {
+    const models = await listAvailableModels();
+    await stopRuntime();
+
+    if (models.length === 0) {
+      modelSpinner.warn('Could not fetch models. Using current model setting.');
+      return currentModel;
+    }
+
+    modelSpinner.succeed(`Found ${models.length} available model(s)`);
+
+    const chosen = await select({
+      message: 'Select the model to use:',
+      choices: models.map((m) => ({
+        name: `${m.name} ${chalk.dim(`(${m.id})`)}`,
+        value: m.id,
+      })),
+      default: models.find((m) => m.id === currentModel)?.id ?? models[0].id,
+    });
+
+    return chosen;
+  } catch (error) {
+    modelSpinner.fail('Failed to connect to Copilot CLI.');
+    console.log(chalk.yellow('  Make sure you are authenticated: copilot auth login'));
+    console.log(chalk.yellow(`  Keeping current model: ${currentModel}\n`));
+    await stopRuntime().catch(() => {});
+    return currentModel;
   }
 }

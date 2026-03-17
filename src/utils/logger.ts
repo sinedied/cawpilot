@@ -17,9 +17,10 @@ const levelColors: Record<LogLevel, (s: string) => string> = {
 };
 
 let currentLevel: LogLevel = (process.env.LOG_LEVEL as LogLevel) ?? 'info';
+let enabled = true;
 
 function shouldLog(level: LogLevel): boolean {
-  return levels[level] >= levels[currentLevel];
+  return enabled && levels[level] >= levels[currentLevel];
 }
 
 function formatMessage(level: LogLevel, msg: string): string {
@@ -43,5 +44,11 @@ export const logger = {
   },
   setLevel(level: LogLevel) {
     currentLevel = level;
+  },
+  enable() {
+    enabled = true;
+  },
+  disable() {
+    enabled = false;
   },
 };

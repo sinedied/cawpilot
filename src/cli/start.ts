@@ -1,5 +1,6 @@
 import chalk from 'chalk';
-import { loadConfig, getDbPath } from '../workspace/config.js';
+import { randomBytes } from 'node:crypto';
+import { loadConfig, saveConfig, getDbPath } from '../workspace/config.js';
 import { getDb, closeDb } from '../db/client.js';
 import { createMessage } from '../db/messages.js';
 import { ensureWorkspace, cloneRepo } from '../workspace/manager.js';
@@ -8,13 +9,30 @@ import { Orchestrator } from '../agent/orchestrator.js';
 import { CliChannel } from '../channels/cli.js';
 import { TelegramChannel } from '../channels/telegram.js';
 import { HttpChannel } from '../channels/http.js';
-import { renderDashboard } from './dashboard.js';
+import { renderDashboard, refreshDashboard } from './dashboard.js';
 import type { Channel } from '../channels/types.js';
 import { logger } from '../utils/logger.js';
 
-export async function runStart(workspacePath: string): Promise<void> {
+interface PendingPair {
+  code: string;
+  sourceChannel: string;
+  sourceSender: string;
+  expiresAt: number;
+}
+
+export interface StartOptions {
+  debug: boolean;
+}
+
+export async function runStart(workspacePath: string, options: StartOptions = { debug: false }): Promise<void> {
   const config = loadConfig(workspacePath);
   config.workspacePath = workspacePath;
+
+  if (!options.debug) {
+    logger.disable();
+  } else {
+    logger.setLevel('debug');
+  }
 
   ensureWorkspace(workspacePath);
   const db = getDb(getDbPath(workspacePath));
@@ -28,6 +46,14 @@ export async function runStart(workspacePath: string): Promise<void> {
     }
   }
 
+  // Pairing state
+  const pendingPairs: PendingPair[] = [];
+
+  function generatePairCode(): string {
+    const raw = randomBytes(4).toString('hex').toUpperCase();
+    return `${raw.slice(0, 4)}-${raw.slice(4, 8)}`;
+  }
+
   // Initialize channels
   const channels = new Map<string, Channel>();
 
@@ -38,14 +64,88 @@ export async function runStart(workspacePath: string): Promise<void> {
     if (!chConfig.enabled) continue;
 
     if (chConfig.type === 'telegram' && chConfig.telegramToken) {
-      const tg = new TelegramChannel(chConfig.telegramToken, chConfig.telegramChatId);
+      const tg = new TelegramChannel(chConfig.telegramToken, chConfig.allowList ?? []);
       channels.set('telegram', tg);
     }
 
     if (chConfig.type === 'http') {
-      const http = new HttpChannel(chConfig.httpPort ?? 3000);
+      const http = new HttpChannel(chConfig.httpPort ?? 3000, chConfig.httpApiKey);
       channels.set('http', http);
     }
+  }
+
+  // Pair command handler shared across all channels
+  const handlePairCommand = async (channelName: string, sender: string, code?: string) => {
+    const channel = channels.get(channelName);
+    if (!channel) return;
+
+    // Prune expired codes
+    const now = Date.now();
+    for (let i = pendingPairs.length - 1; i >= 0; i--) {
+      if (pendingPairs[i].expiresAt < now) pendingPairs.splice(i, 1);
+    }
+
+    if (!code) {
+      // "/pair" with no code — generate a pairing code (only from linked channels or CLI)
+      const isLinked = channelName === 'cli' ||
+        (channelName === 'telegram' && (channels.get('telegram') as TelegramChannel)?.isLinked(sender));
+
+      if (!isLinked) {
+        await channel.send(sender, '❌ You must be on a linked channel to generate a pairing code. Use /pair <code> to link with an existing code.');
+        return;
+      }
+
+      const newCode = generatePairCode();
+      pendingPairs.push({
+        code: newCode,
+        sourceChannel: channelName,
+        sourceSender: sender,
+        expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
+      });
+
+      await channel.send(sender, `🔗 Pairing code: ${chalk.bold(newCode)}\nSend /pair ${newCode} from the channel you want to link. Valid for 5 minutes.`);
+      return;
+    }
+
+    // "/pair <code>" — attempt to link
+    const pairIndex = pendingPairs.findIndex((p) => p.code === code.toUpperCase());
+    if (pairIndex === -1) {
+      await channel.send(sender, '❌ Invalid or expired pairing code.');
+      return;
+    }
+
+    const pair = pendingPairs[pairIndex];
+    pendingPairs.splice(pairIndex, 1);
+
+    // Link the sender on this channel
+    if (channelName === 'telegram') {
+      const tg = channels.get('telegram') as TelegramChannel;
+      tg.addToAllowList(sender);
+
+      // Persist to config
+      const tgConfig = config.channels.find((c) => c.type === 'telegram');
+      if (tgConfig) {
+        tgConfig.allowList = tg.getAllowList();
+        saveConfig(config);
+      }
+    }
+
+    await channel.send(sender, '✅ Channel linked! You can now send messages here.');
+
+    // Notify the originating channel
+    const sourceChannel = channels.get(pair.sourceChannel);
+    if (sourceChannel) {
+      await sourceChannel.send(pair.sourceSender, `✅ A new ${channelName} user has been linked.`);
+    }
+
+    logger.info(`Paired ${channelName}/${sender} via code from ${pair.sourceChannel}/${pair.sourceSender}`);
+  };
+
+  // Wire pair handlers
+  cliChannel.setPairHandler(handlePairCommand);
+  const tgChannel = channels.get('telegram');
+  if (tgChannel?.setPairHandler) {
+    tgChannel.setPairHandler(handlePairCommand);
   }
 
   // Start Copilot SDK runtime
@@ -72,20 +172,25 @@ export async function runStart(workspacePath: string): Promise<void> {
 
   // Dashboard
   const startTime = new Date();
-  const dashboardInterval = setInterval(() => {
-    process.stdout.write('\x1B[2J\x1B[H'); // Clear screen
-    process.stdout.write(renderDashboard(orchestrator, db, startTime));
-  }, 2000);
 
-  // Initial render
-  process.stdout.write(renderDashboard(orchestrator, db, startTime));
+  if (options.debug) {
+    // Debug mode: just log, no dashboard refresh
+    console.log(renderDashboard(orchestrator, db, startTime));
+    console.log(chalk.dim('Press Ctrl+C to stop. Debug logging enabled.\n'));
+  } else {
+    // Normal mode: dashboard view with in-place refresh
+    console.log(renderDashboard(orchestrator, db, startTime));
+    console.log(chalk.dim('Press Ctrl+C to stop. Type messages below to chat.\n'));
+  }
 
-  console.log(chalk.dim('Press Ctrl+C to stop.\n'));
+  const dashboardInterval = options.debug ? undefined : setInterval(() => {
+    refreshDashboard(orchestrator, db, startTime);
+  }, 5000);
 
   // Graceful shutdown
   const shutdown = async () => {
     console.log(chalk.dim('\nShutting down...'));
-    clearInterval(dashboardInterval);
+    if (dashboardInterval) clearInterval(dashboardInterval);
     orchestrator.stop();
 
     for (const [name, channel] of channels) {

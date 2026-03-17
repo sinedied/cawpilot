@@ -21,6 +21,17 @@ export async function startRuntime(): Promise<CopilotClient> {
   return client;
 }
 
+export async function listAvailableModels(): Promise<{ id: string; name: string }[]> {
+  const cl = await startRuntime();
+  try {
+    const models = await cl.listModels();
+    return models.map((m) => ({ id: m.id, name: m.name }));
+  } catch (error) {
+    logger.warn(`Failed to list models: ${error}`);
+    return [];
+  }
+}
+
 export async function stopRuntime(): Promise<void> {
   if (client) {
     await client.stop();

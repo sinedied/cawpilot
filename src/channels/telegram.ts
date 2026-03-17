@@ -1,17 +1,34 @@
 import { Bot } from 'grammy';
 import { logger } from '../utils/logger.js';
-import type { Channel, MessageHandler } from './types.js';
+import type { Channel, MessageHandler, PairCommandHandler } from './types.js';
 
 export class TelegramChannel implements Channel {
   readonly name = 'telegram';
   private bot: Bot | undefined;
-  private linkedChatId: string | undefined;
+  private allowList: Set<string>;
+  private pairHandler: PairCommandHandler | undefined;
 
   constructor(
     private readonly token: string,
-    private readonly chatId?: string,
+    allowList: string[] = [],
   ) {
-    this.linkedChatId = chatId;
+    this.allowList = new Set(allowList);
+  }
+
+  setPairHandler(handler: PairCommandHandler): void {
+    this.pairHandler = handler;
+  }
+
+  isLinked(chatId: string): boolean {
+    return this.allowList.has(chatId);
+  }
+
+  addToAllowList(chatId: string): void {
+    this.allowList.add(chatId);
+  }
+
+  getAllowList(): string[] {
+    return [...this.allowList];
   }
 
   async start(onMessage: MessageHandler): Promise<void> {
@@ -19,15 +36,26 @@ export class TelegramChannel implements Channel {
 
     this.bot.on('message:text', (ctx) => {
       const chatId = ctx.chat.id.toString();
-      if (this.linkedChatId && chatId !== this.linkedChatId) {
-        logger.debug(`Ignoring message from unlinked chat ${chatId}`);
+      const text = ctx.message.text.trim();
+
+      // Handle /pair command from any sender (linked or not)
+      if (text.startsWith('/pair')) {
+        const parts = text.split(/\s+/);
+        const code = parts[1]; // undefined if just "/pair"
+        this.pairHandler?.('telegram', chatId, code);
+        return;
+      }
+
+      // Drop messages from unlinked senders
+      if (!this.isLinked(chatId)) {
+        logger.debug(`Dropping message from unlinked Telegram chat ${chatId}`);
         return;
       }
 
       onMessage({
         channel: 'telegram',
         sender: chatId,
-        content: ctx.message.text,
+        content: text,
       });
     });
 
@@ -35,7 +63,8 @@ export class TelegramChannel implements Channel {
       logger.error(`Telegram bot error: ${err.message}`);
     });
 
-    await this.bot.start();
+    // bot.start() never resolves (long-polling loop), so fire and forget
+    this.bot.start();
     logger.info('Telegram channel started');
   }
 
@@ -45,32 +74,24 @@ export class TelegramChannel implements Channel {
     logger.debug('Telegram channel stopped');
   }
 
-  async send(_sender: string, content: string): Promise<void> {
-    if (!this.bot || !this.linkedChatId) {
-      logger.warn('Telegram: cannot send, no linked chat');
+  async send(sender: string, content: string): Promise<void> {
+    if (!this.bot) {
+      logger.warn('Telegram: bot not started');
       return;
     }
 
-    await this.bot.api.sendMessage(this.linkedChatId, content);
-  }
-
-  generatePairingCode(): string {
-    const code = Math.random().toString(36).slice(2, 8).toUpperCase();
-    return code;
-  }
-
-  setPairingHandler(code: string, onPaired: (chatId: string) => void): void {
-    if (!this.bot) return;
-
-    this.bot.on('message:text', (ctx, next) => {
-      if (ctx.message.text.trim() === code && !this.linkedChatId) {
-        this.linkedChatId = ctx.chat.id.toString();
-        ctx.reply('✅ CawPilot linked! You can now send commands here.');
-        onPaired(this.linkedChatId);
-        logger.info(`Telegram paired with chat ${this.linkedChatId}`);
-        return;
+    // Send to a specific chat, or broadcast to all linked chats
+    if (sender && this.isLinked(sender)) {
+      await this.bot.api.sendMessage(sender, content);
+    } else {
+      // Broadcast to all linked chats
+      for (const chatId of this.allowList) {
+        try {
+          await this.bot.api.sendMessage(chatId, content);
+        } catch (error) {
+          logger.error(`Failed to send to Telegram chat ${chatId}: ${error}`);
+        }
       }
-      return next();
-    });
+    }
   }
 }

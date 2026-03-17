@@ -12,9 +12,9 @@ export interface ChannelConfig {
   type: 'telegram' | 'http';
   enabled: boolean;
   telegramToken?: string;
-  telegramChatId?: string;
   httpPort?: number;
-  pairingCode?: string;
+  httpApiKey?: string;
+  allowList?: string[];
 }
 
 export interface CawpilotConfig {
