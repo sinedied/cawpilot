@@ -1,7 +1,7 @@
 {
   "name": "cawpilot",
   "version": "0.1.0",
-  "description": "On-call coding copilot — talk to GitHub Copilot from Signal, WhatsApp, or Telegram",
+  "description": "On-call coding copilot — talk to GitHub Copilot from Telegram and other chat channels",
   "type": "module",
   "engines": {
     "node": ">=24.0.0"
@@ -23,7 +23,7 @@
   "keywords": [
     "copilot",
     "agent",
-    "signal",
+    "telegram",
     "bot",
     "ai",
     "coding-assistant"
@@ -32,21 +32,16 @@
   "license": "MIT",
   "dependencies": {
     "@github/copilot-sdk": "^0.1.32",
-    "@hapi/boom": "^10.0.1",
     "@inquirer/prompts": "^7.0.0",
     "@octokit/rest": "^21.0.0",
-    "@whiskeysockets/baileys": "^6.7.21",
     "commander": "^13.0.0",
+    "grammy": "^1.41.1",
     "localtunnel": "^2.0.2",
-    "pino": "^10.3.1",
-    "qrcode-terminal": "^0.12.0",
-    "signal-sdk": "^0.1.8",
     "simple-git": "^3.27.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
-    "@types/qrcode-terminal": "^0.12.2",
     "eslint": "^9.0.0",
     "tsx": "^4.21.0",
     "typescript": "^5.8.0",

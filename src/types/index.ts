@@ -1,6 +1,2 @@
-export interface IncomingMessage {
-  from: string;
-  text: string;
-  timestamp: number;
-  platform: 'signal' | 'whatsapp' | 'telegram';
-}
+// Re-export channel types for convenience
+export type { Channel, IncomingMessage, ChannelFactory } from '../channels/index.js';

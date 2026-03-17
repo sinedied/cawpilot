@@ -1,15 +1,16 @@
 export interface CawPilotConfig {
-  messaging: MessagingConfig;
+  channel: ChannelConfig;
   github: GitHubConfig;
   workspace: WorkspaceConfig;
   branching: BranchingConfig;
   skills: string[];
 }
 
-export interface MessagingConfig {
-  platform: 'signal' | 'whatsapp' | 'telegram';
-  signalPhoneNumber?: string;
-  whatsappAuthDir?: string;
+export interface ChannelConfig {
+  /** Channel name (e.g. 'telegram'). */
+  name: string;
+  /** Channel-specific options passed to the channel factory. */
+  options: Record<string, unknown>;
 }
 
 export interface GitHubConfig {

@@ -1,19 +1,19 @@
 # CawPilot
 
-On-call coding copilot that bridges GitHub Copilot's agent runtime with messaging platforms (Signal, WhatsApp, Telegram). Users interact via messaging apps; CawPilot manages code, branches, todo lists, and developer workflows through natural conversation.
+On-call coding copilot that bridges GitHub Copilot's agent runtime with chat platforms via pluggable channels. Users interact via Telegram (or custom channels); CawPilot manages code, branches, todo lists, and developer workflows through natural conversation.
 
 ## Overview
 
-- **Purpose**: Allow developers to interact with Copilot's agentic workflows from their phone via messaging apps
-- **Audience**: Developers who want remote access to an AI coding assistant via Signal/WhatsApp/Telegram
-- **Architecture**: Node.js service → Copilot SDK (JSON-RPC to Copilot CLI) → messaging adapters → skill system
+- **Purpose**: Allow developers to interact with Copilot's agentic workflows from their phone via chat apps
+- **Audience**: Developers who want remote access to an AI coding assistant via Telegram (or other channels)
+- **Architecture**: Node.js service → Copilot SDK (JSON-RPC to Copilot CLI) → channel plugins → skill system
 - **Monorepo**: No — single package
 
 ### Project Structure
 
 ```
 src/
-├── index.ts              # Main entry, initializes agent and messaging
+├── index.ts              # Main entry, initializes agent and channel
 ├── cli/                  # Onboarding CLI (bin entry point)
 │   ├── index.ts          # CLI commands (setup, start, config)
 │   ├── setup.ts          # Interactive setup wizard
@@ -22,11 +22,9 @@ src/
 │   ├── agent.ts          # CopilotClient wrapper, session lifecycle
 │   ├── session.ts        # Per-user session management
 │   └── config.ts         # Config types and defaults
-├── messaging/
-│   ├── adapter.ts        # Abstract MessagingAdapter interface
-│   ├── signal.ts         # Signal adapter (signal-sdk, built-in signal-cli)
-│   ├── telegram.ts       # Telegram adapter (future)
-│   └── whatsapp.ts       # WhatsApp adapter (Baileys, pure Node.js)
+├── channels/
+│   ├── index.ts          # Channel interface, plugin registry, factory
+│   └── telegram.ts       # Built-in Telegram channel (grammy)
 ├── skills/
 │   ├── registry.ts       # Loads skills from .cawpilot/skills/
 │   ├── tunnel.ts         # Local tunnel skill (localtunnel)
@@ -37,7 +35,7 @@ src/
 │   ├── manager.ts        # Clone repos, manage workspace dirs
 │   └── git.ts            # Git helpers (branch prefix, safe ops)
 └── types/
-    └── index.ts          # Shared types
+    └── index.ts          # Shared types (re-exports from channels)
 skills/                   # Built-in skill templates (.md files)
 docker/                   # Dockerfile and docker-compose.yml
 ```
@@ -47,13 +45,12 @@ docker/                   # Dockerfile and docker-compose.yml
 - **Runtime**: Node.js 24+ with ESM modules
 - **Language**: TypeScript 5.x (strict mode)
 - **Agent engine**: `@github/copilot-sdk` — wraps Copilot CLI via JSON-RPC
-- **Signal backend**: `signal-sdk` npm package — embeds signal-cli, auto-downloads binary on install
-- **WhatsApp backend**: `@whiskeysockets/baileys` — pure Node.js/TypeScript WebSocket client for WhatsApp Web
+- **Telegram channel**: `grammy` — TypeScript-native Telegram Bot API framework
 - **GitHub auth**: GitHub CLI (`gh`) for authentication
 - **GitHub API**: `octokit` / `@octokit/rest`
 - **Git operations**: `simple-git`
 - **CLI framework**: `commander` for CLI commands
-- **Interactive prompts**: `inquirer` or `@inquirer/prompts`
+- **Interactive prompts**: `@inquirer/prompts`
 - **Schema validation**: `zod` (also used for Copilot SDK tool definitions)
 - **Local tunnel**: `localtunnel` npm package
 - **Build**: `tsc` with ESM output
@@ -65,16 +62,15 @@ docker/                   # Dockerfile and docker-compose.yml
 - **ESM only**: All imports must use ESM syntax. No CommonJS `require()`. Use `.js` extensions in relative imports.
 - **Branch safety**: The agent must NEVER commit or push to `main` (or any protected branch). All work happens on branches matching the configured prefix (default: `ocp-*`). Enforce this in `workspace/git.ts`.
 - **Port restrictions**: The tunnel skill only allows exposing ports > 4096 to avoid accidentally exposing system services.
-- **Messaging adapter interface**: All messaging platforms implement the same `MessagingAdapter` interface from `messaging/adapter.ts`. This enables swapping platforms without changing core logic.
+- **Channel plugin interface**: All communication channels implement the `Channel` interface from `channels/index.ts`. New channels can be registered via `registerChannel()`. This enables adding platforms without changing core logic.
 - **Skill isolation**: CawPilot skills (in `.cawpilot/skills/`) are separate from coding agent skills (in `.agents/skills/`). Do not mix them.
 - **Config location**: User config lives in `.cawpilot/config.json` in the project root or `~/.cawpilot/config.json` globally.
 
 ## Challenges and Mitigation Strategies
 
 - **Copilot CLI dependency**: The SDK requires `copilot` CLI in PATH. Docker image must include it. For local dev, document installation steps clearly.
-- **Signal linking**: signal-sdk uses signal-cli's built-in device linking which displays a QR code in the terminal. The onboarding CLI triggers this via `signal.deviceLink()`. On macOS/Windows, Java 25+ is required; on Linux the native binary is used.
 - **Long-running sessions**: Copilot sessions can be long-lived. Use infinite sessions with auto-compaction. Handle reconnection gracefully.
-- **Message size limits**: Signal has message size limits. Long agent responses must be chunked into multiple messages.
+- **Message size limits**: Each channel has its own message size limits. Long agent responses must be chunked. The `chunkMessage()` utility handles this per-channel.
 
 ## Development Workflow
 

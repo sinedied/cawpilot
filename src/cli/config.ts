@@ -29,9 +29,9 @@ export async function saveConfig(config: CawPilotConfig): Promise<void> {
 
 function getDefaultConfig(): CawPilotConfig {
   return {
-    messaging: {
-      platform: 'signal',
-      signalPhoneNumber: '',
+    channel: {
+      name: 'telegram',
+      options: {},
     },
     github: {
       repos: [],

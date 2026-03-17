@@ -1,4 +1,4 @@
-import { select, input, checkbox, confirm } from '@inquirer/prompts';
+import { input, checkbox } from '@inquirer/prompts';
 import { loadConfig, saveConfig, hasExistingConfig } from './config.js';
 import { ensureGitHubAuth, selectRepos } from './github.js';
 import type { CawPilotConfig } from '../core/config.js';
@@ -9,78 +9,39 @@ export async function runSetup(): Promise<void> {
 
   if (existing) {
     console.log('\n🐦 CawPilot Setup (reconfigure)\n');
-    console.log(`   Current platform: ${current.messaging.platform}`);
+    console.log(`   Current channel: ${current.channel.name}`);
     console.log(`   Current repos: ${current.github.repos.length > 0 ? current.github.repos.join(', ') : 'none'}`);
     console.log(`   Current skills: ${current.skills.length > 0 ? current.skills.join(', ') : 'none'}\n`);
   } else {
     console.log('\n🐦 CawPilot Setup\n');
   }
 
-  // Step 1: Choose messaging platform
-  const platform = await select({
-    message: 'Choose a messaging platform:',
-    default: current.messaging.platform,
-    choices: [
-      { name: 'Signal', value: 'signal' as const },
-      { name: 'WhatsApp', value: 'whatsapp' as const },
-      { name: 'Telegram (coming soon)', value: 'telegram' as const, disabled: true },
-    ],
+  // Step 1: Telegram channel setup
+  const currentToken = (current.channel.options?.botToken as string) ?? '';
+
+  console.log('🤖 Telegram bot setup:');
+  console.log('   1. Open Telegram and message @BotFather');
+  console.log('   2. Send /newbot and follow the prompts');
+  console.log('   3. Copy the bot token and paste it below\n');
+
+  const telegramBotToken = await input({
+    message: 'Telegram bot token:',
+    default: currentToken || undefined,
   });
 
-  // Step 2: Signal-specific setup
-  let signalPhoneNumber = current.messaging.signalPhoneNumber ?? '';
-
-  if (platform === 'signal') {
-    signalPhoneNumber = await input({
-      message: 'Your Signal phone number (international format, e.g. +1234567890):',
-      default: signalPhoneNumber || undefined,
-    });
-
-    const shouldLink = await confirm({
-      message: 'Link CawPilot as a secondary Signal device now?',
-      default: !existing,
-    });
-
-    if (shouldLink) {
-      console.log('\n📱 Linking Signal device...');
-      console.log('   A QR code will appear — scan it from Signal > Settings > Linked Devices\n');
-
-      const { SignalCli } = await import('signal-sdk');
-      const signal = new SignalCli(signalPhoneNumber);
-      try {
-        await signal.deviceLink({ name: 'cawpilot' });
-        console.log('\n✅ Signal device linked successfully!\n');
-      } catch (error) {
-        console.error('\n⚠️  Device linking failed:', error);
-        console.log('   You can retry later with: npx signal-sdk connect "cawpilot"\n');
-      } finally {
-        await signal.gracefulShutdown().catch(() => {});
-      }
-    } else {
-      console.log('\n   You can link later with: npx signal-sdk connect "cawpilot"\n');
-    }
-  }
-
-  // Step 2b: WhatsApp-specific setup
-  if (platform === 'whatsapp') {
-    console.log('\n📱 WhatsApp uses Baileys (pure Node.js, no external dependencies).');
-    console.log('   On first start, a QR code will appear in the terminal.');
-    console.log('   Scan it from WhatsApp > Settings > Linked Devices > Link a Device\n');
-  }
-
-  // Step 3: GitHub authentication via GitHub CLI
+  // Step 2: GitHub authentication via GitHub CLI
   await ensureGitHubAuth();
 
-  // Step 4: Interactive repo selection (pre-select existing repos)
+  // Step 3: Interactive repo selection (pre-select existing repos)
   const repos = await selectRepos(current.github.repos);
 
-  // Step 5: Todo repo
+  // Step 4: Todo repo
   const todoRepo = await input({
     message: 'Private repo for todo list (e.g. your-user/todo):',
     default: current.github.todoRepo ?? '',
   });
 
-  // Step 6: Choose skills
+  // Step 5: Choose skills
   const skills = await checkbox({
     message: 'Enable skills:',
     choices: [
@@ -91,17 +52,19 @@ export async function runSetup(): Promise<void> {
     ],
   });
 
-  // Step 7: Branch prefix
+  // Step 6: Branch prefix
   const branchPrefix = await input({
     message: 'Branch prefix for safe operations:',
     default: current.branching.prefix,
   });
 
   const config: CawPilotConfig = {
-    messaging: {
-      platform,
-      signalPhoneNumber,
-      whatsappAuthDir: current.messaging.whatsappAuthDir,
+    channel: {
+      name: 'telegram',
+      options: {
+        botToken: telegramBotToken || undefined,
+        allowedChatIds: (current.channel.options?.allowedChatIds as number[]) ?? [],
+      },
     },
     github: {
       repos,

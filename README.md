@@ -9,9 +9,9 @@
 [![Copilot SDK](https://img.shields.io/badge/Copilot_SDK-v0.1.x-000?style=flat-square&logo=github&logoColor=white)](https://github.com/github/copilot-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
-CawPilot connects GitHub Copilot's agentic engine to your messaging apps — talk to your code from Signal, WhatsApp, or Telegram.
+CawPilot connects GitHub Copilot's agentic engine to your chat apps — talk to your code from Telegram (and more via plugins).
 
-[Getting Started](#getting-started) · [Features](#features) · [Architecture](#architecture) · [Skills](#skills) · [Docker](#docker) · [Configuration](#configuration)
+[Getting Started](#getting-started) · [Features](#features) · [Architecture](#architecture) · [Skills](#skills) · [Channels](#channels) · [Docker](#docker) · [Configuration](#configuration)
 
 </div>
 
@@ -19,15 +19,15 @@ CawPilot connects GitHub Copilot's agentic engine to your messaging apps — tal
 
 ## Overview
 
-CawPilot is an on-call coding assistant that bridges GitHub Copilot's agent runtime with messaging platforms. Send a message from Signal and CawPilot will read your repos, write code, create branches, manage your todo list, and even spin up a temporary public URL to share your work — all through natural conversation.
+CawPilot is an on-call coding assistant that bridges GitHub Copilot's agent runtime with chat platforms. Send a message from Telegram and CawPilot will read your repos, write code, create branches, manage your todo list, and even spin up a temporary public URL to share your work — all through natural conversation.
 
 Built on the [GitHub Copilot SDK](https://github.com/github/copilot-sdk) for Node.js, CawPilot wraps Copilot's production-tested planning, tool invocation, and file editing into a bot you can reach from your phone.
 
 ## Features
 
-- **💬 Messaging integration** — Chat with your copilot from Signal (MVP), with WhatsApp and Telegram planned
+- **💬 Pluggable channels** — Communicate with your copilot via Telegram (built-in), or add custom channels via the plugin interface
 - **🤖 Copilot-powered agent** — Full access to Copilot's agentic workflows: planning, code edits, tool calling, and more
-- **🔧 Interactive onboarding CLI** — Guided setup to connect messaging platforms, link GitHub repos, and choose skills
+- **🔧 Interactive onboarding CLI** — Guided setup to connect channels, link GitHub repos, and choose skills
 - **📂 Dedicated workspace** — Clone and manage connected repositories in an isolated workspace
 - **🌿 Safe branching** — Only works in `ocp-*` branches (customizable prefix), never commits to main
 - **📋 Todo management** — Personal task tracking via `todo.md` in a private GitHub repo
@@ -43,7 +43,7 @@ Built on the [GitHub Copilot SDK](https://github.com/github/copilot-sdk) for Nod
 - [GitHub CLI](https://cli.github.com/) (`gh`) installed and authenticated
 - [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli) installed and in your PATH
 - A [GitHub Copilot subscription](https://github.com/features/copilot#pricing) (free tier available)
-- Java 25+ (macOS/Windows only — Linux uses native signal-cli binary)
+- A [Telegram bot token](https://t.me/botfather) (free, takes 30 seconds)
 
 ### Installation
 
@@ -53,24 +53,26 @@ npm install -g cawpilot
 
 ### Quick Start
 
-1. **Run the setup wizard:**
+1. **Create a Telegram bot** — message [@BotFather](https://t.me/botfather) on Telegram, send `/newbot`, and copy the token.
+
+2. **Run the setup wizard:**
 
    ```bash
    cawpilot setup
    ```
 
    The interactive CLI will guide you through:
-   - Connecting a messaging platform (Signal for MVP)
+   - Pasting your Telegram bot token
    - Authenticating with GitHub and selecting repositories
    - Choosing which skills to enable
 
-2. **Start the bot:**
+3. **Start the bot:**
 
    ```bash
    cawpilot start
    ```
 
-3. **Send a message** from Signal to your linked number — CawPilot takes it from there.
+4. **Message your bot** on Telegram — CawPilot takes it from there.
 
 ### Docker Quick Start
 
@@ -90,9 +92,9 @@ docker compose exec cawpilot cawpilot setup
 
 ```
 ┌─────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   Signal /   │────▶│    CawPilot      │────▶│  Copilot CLI    │
-│  WhatsApp /  │◀────│   (Node.js)      │◀────│  (JSON-RPC)     │
-│  Telegram    │     │                  │     └─────────────────┘
+│  Telegram /  │────▶│    CawPilot      │────▶│  Copilot CLI    │
+│  Custom      │◀────│   (Node.js)      │◀────│  (JSON-RPC)     │
+│  Channels    │     │                  │     └─────────────────┘
 └─────────────┘     │  ┌────────────┐  │     ┌─────────────────┐
                     │  │  Skills    │  │────▶│  GitHub API      │
                     │  │  Registry  │  │     │  (Octokit)       │
@@ -108,19 +110,33 @@ docker compose exec cawpilot cawpilot setup
 
 | Component | Description |
 |---|---|
-| **Messaging Adapters** | Pluggable adapters for Signal (via built-in signal-cli) and WhatsApp (via Baileys), with Telegram planned |
+| **Channels** | Pluggable communication channels — Telegram built-in, custom channels via plugin interface |
 | **Agent Core** | Wraps the Copilot SDK — manages sessions, tools, hooks, and system prompts |
 | **Skill Registry** | Loads and manages skills from `.cawpilot/skills/` |
 | **Workspace Manager** | Clones repos, manages branches with safe prefix enforcement |
 | **Onboarding CLI** | Interactive setup wizard for first-time configuration |
 
-### Signal Integration
+## Channels
 
-CawPilot uses [signal-sdk](https://github.com/benoitpetit/signal-sdk) which embeds signal-cli directly — no separate Docker container or external service needed. On install, the correct signal-cli binary is downloaded automatically. The setup wizard links CawPilot as a secondary Signal device via QR code — no new phone number required.
+Channels are the communication layer between you and CawPilot. The built-in Telegram channel uses [grammy](https://grammy.dev/) — a TypeScript-native Telegram Bot API framework.
 
-### WhatsApp Integration
+### Custom Channels
 
-CawPilot uses [Baileys](https://github.com/WhiskeySockets/Baileys) — a pure Node.js/TypeScript library that communicates with WhatsApp Web via WebSocket. No browser, no Puppeteer, no external binaries. On first start, a QR code appears in the terminal to link as a secondary device.
+You can build your own channel by implementing the `Channel` interface and registering it:
+
+```typescript
+import { registerChannel, type Channel, type IncomingMessage } from 'cawpilot/channels';
+
+class MyChannel implements Channel {
+  async start(onMessage: (msg: IncomingMessage) => Promise<void>) { /* ... */ }
+  async send(to: string, text: string) { /* ... */ }
+  async stop() { /* ... */ }
+}
+
+registerChannel('my-channel', (config) => new MyChannel(config));
+```
+
+Then set `channel.name` to `'my-channel'` in your config.
 
 ## Skills
 
@@ -153,9 +169,12 @@ Configuration is stored in `.cawpilot/config.json`:
 
 ```jsonc
 {
-  "messaging": {
-    "platform": "signal",
-    "signalPhoneNumber": "+1234567890"
+  "channel": {
+    "name": "telegram",
+    "options": {
+      "botToken": "123456:ABC-DEF...",
+      "allowedChatIds": []
+    }
   },
   "github": {
     "repos": ["owner/repo-1", "owner/repo-2"],
@@ -175,7 +194,7 @@ Configuration is stored in `.cawpilot/config.json`:
 
 | Variable | Description |
 |---|---|
-| `SIGNAL_PHONE_NUMBER` | Your Signal phone number (international format) |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token (alternative to config) |
 | `CAWPILOT_BRANCH_PREFIX` | Branch prefix override (default: `ocp-`) |
 
 ## Docker
@@ -189,10 +208,8 @@ services:
     volumes:
       - ./workspace:/app/workspace
       - ./.cawpilot:/app/.cawpilot
-      - signal-data:/root/.local/share/signal-cli
     environment:
-      - GITHUB_TOKEN
-      - SIGNAL_PHONE_NUMBER
+      - TELEGRAM_BOT_TOKEN
 
 volumes:
   signal-data:
@@ -206,7 +223,7 @@ cawpilot/
 │   ├── index.ts              # Main entry point
 │   ├── cli/                  # Onboarding CLI tool
 │   ├── core/                 # Copilot SDK agent, sessions, config
-│   ├── messaging/            # Messaging platform adapters
+│   ├── channels/             # Channel plugin interface + built-in channels
 │   ├── skills/               # Skill registry and built-in skills
 │   ├── workspace/            # Repo and Git workspace management
 │   └── types/                # Shared TypeScript types
@@ -240,15 +257,15 @@ npm run lint
 ## Roadmap
 
 - [x] Project architecture and planning
+- [x] Telegram channel (built-in)
+- [x] Channel plugin interface
 - [ ] Core agent with Copilot SDK integration
-- [ ] Signal messaging adapter
 - [ ] Onboarding CLI wizard
 - [ ] Workspace and Git management
 - [ ] Skill system with registry
 - [ ] Built-in skills (tunnel, todo, review, git)
 - [ ] Docker Compose deployment
-- [ ] WhatsApp adapter
-- [ ] Telegram adapter
+- [ ] Additional channels (Signal, Discord, etc.)
 - [ ] Cloud deployment guide
 
 ## License
