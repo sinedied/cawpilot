@@ -64,7 +64,7 @@ Instructions:
 
     await session.sendAndWait({
       prompt: `Process this task: ${task.title}\n\nContext:\n${messageContext}`,
-    });
+    }, 0);
 
     await session.disconnect();
     logger.info(`Task ${task.id} completed`);

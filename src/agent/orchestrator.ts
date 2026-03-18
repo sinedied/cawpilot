@@ -122,7 +122,7 @@ Group related messages together. Each message should appear in exactly one task.
 
       const response = await session.sendAndWait({
         prompt: `Group these messages into tasks:\n${messageList}`,
-      });
+      }, 120_000);
       await session.disconnect();
 
       if (response?.data?.content) {
@@ -176,7 +176,7 @@ Group related messages together. Each message should appear in exactly one task.
         systemPrompt: `You are CawPilot running a scheduled task. Complete the task and report results.`,
       });
 
-      await session.sendAndWait({ prompt });
+      await session.sendAndWait({ prompt }, 0);
       await session.disconnect();
       this._processedCount++;
     } catch (error) {
