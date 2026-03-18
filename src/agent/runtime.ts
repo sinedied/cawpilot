@@ -12,6 +12,9 @@ let client: CopilotClient | undefined;
 export async function startRuntime(): Promise<CopilotClient> {
   if (client) return client;
 
+  // Suppress Node.js experimental warnings from the Copilot CLI subprocess
+  process.env.NODE_NO_WARNINGS = '1';
+
   client = new CopilotClient({
     logLevel: process.env.LOG_LEVEL === 'debug' ? 'debug' : 'info',
   });
