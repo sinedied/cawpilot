@@ -2,11 +2,13 @@ import type Database from 'better-sqlite3';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CawpilotConfig } from '../workspace/config.js';
+import { loadSoul } from '../workspace/config.js';
 import type { Channel } from '../channels/types.js';
 import { getUnprocessedMessages, markMessagesProcessing } from '../db/messages.js';
 import { createTask, getActiveTasks, getAllTasks, type Task } from '../db/tasks.js';
 import { getDueScheduledTasks, updateScheduledTaskRun } from '../db/scheduled.js';
 import { createTaskSession } from './runtime.js';
+import { TRIAGE_SYSTEM_PROMPT, buildTaskSystemPrompt } from './prompts.js';
 import { runTask } from './task-runner.js';
 import { logger } from '../utils/logger.js';
 
@@ -111,9 +113,7 @@ export class Orchestrator {
         taskId: 'triage',
         sourceChannel: messages[0].channel,
         sourceSender: messages[0].sender,
-        systemPrompt: `You are a task triage system. Given a list of user messages, group them into tasks.
-Output ONLY a JSON array with objects containing "title" (short task description) and "messageIds" (array of message IDs to include).
-Group related messages together. Each message should appear in exactly one task.`,
+        systemPrompt: TRIAGE_SYSTEM_PROMPT,
       });
 
       const messageList = messages
@@ -173,7 +173,13 @@ Group related messages together. Each message should appear in exactly one task.
         taskId: task.id,
         sourceChannel: 'cli',
         sourceSender: 'scheduler',
-        systemPrompt: `You are CawPilot running a scheduled task. Complete the task and report results.`,
+        systemPrompt: buildTaskSystemPrompt({
+          workspacePath: this.config.workspacePath,
+          repos: this.config.repos,
+          taskTitle: task.title,
+          taskId: task.id,
+          soul: loadSoul(this.config.workspacePath),
+        }),
       });
 
       await session.sendAndWait({ prompt }, 0);

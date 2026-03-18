@@ -56,6 +56,16 @@ export function getSkillsPath(workspacePath: string): string {
   return join(workspacePath, '.cawpilot', 'skills');
 }
 
+export function getSoulPath(workspacePath: string): string {
+  return join(workspacePath, '.cawpilot', 'SOUL.md');
+}
+
+export function loadSoul(workspacePath: string): string | undefined {
+  const soulPath = getSoulPath(workspacePath);
+  if (!existsSync(soulPath)) return undefined;
+  return readFileSync(soulPath, 'utf-8');
+}
+
 export function loadConfig(workspacePath: string): CawpilotConfig {
   const configPath = getConfigPath(workspacePath);
   if (!existsSync(configPath)) {

@@ -1,0 +1,47 @@
+/**
+ * System prompts for CawPilot agent sessions.
+ * Centralized here so they can be tuned without modifying business logic.
+ */
+
+export const TRIAGE_SYSTEM_PROMPT = `You are a task triage system. Given a list of user messages, group them into tasks.
+Output ONLY a JSON array with objects containing "title" (short task description) and "messageIds" (array of message IDs to include).
+Group related messages together. Each message should appear in exactly one task.`;
+
+/**
+ * Build the system prompt for any task session (user-triggered or scheduled).
+ */
+export function buildTaskSystemPrompt(options: {
+  workspacePath: string;
+  repos: string[];
+  taskTitle: string;
+  taskId: string;
+  messageContext?: string;
+  soul?: string;
+}): string {
+  const parts: string[] = [];
+
+  parts.push(`You are processing a task based on user messages from various channels.
+Your workspace is at: ${options.workspacePath}
+Connected repositories: ${options.repos.join(', ') || 'none'}
+
+Current task: ${options.taskTitle}
+Task ID: ${options.taskId}`);
+
+  if (options.messageContext) {
+    parts.push(`\nUser messages for this task:\n${options.messageContext}`);
+  }
+
+  parts.push(`\nInstructions:
+- Use the available tools to complete the task
+- Send progress updates to the user via send_message
+- When done, update the task status to 'completed' with a summary
+- If you need more info, update status to 'need-info' and ask the user via send_message
+- If you make code changes, create a branch (caw-* prefix enforced) and a pull request
+`);
+
+  if (options.soul) {
+    parts.push(`\n${options.soul}`);
+  }
+
+  return parts.join('\n');
+}

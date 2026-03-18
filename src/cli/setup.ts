@@ -3,12 +3,14 @@ import ora from 'ora';
 import { randomBytes } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { input, confirm, checkbox, select } from '@inquirer/prompts';
-import { readdirSync, existsSync, cpSync, mkdirSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { readdirSync, existsSync, cpSync, copyFileSync, mkdirSync } from 'node:fs';
+import { join, basename, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   loadConfig,
   saveConfig,
   getSkillsPath,
+  getSoulPath,
   type CawpilotConfig,
   type ChannelConfig,
 } from '../workspace/config.js';
@@ -74,8 +76,10 @@ export async function runSetup(workspacePath: string): Promise<void> {
   // Save
   saveConfig(config);
   copyEnabledSkills(workspacePath, skills);
+  ensureSoulFile(workspacePath);
 
   console.log(chalk.bold.green('\n✅ Setup complete!\n'));
+  console.log(chalk.dim('Customize your agent personality in .cawpilot/SOUL.md'));
   console.log(chalk.dim('Start CawPilot with: cawpilot start\n'));
 }
 
@@ -233,5 +237,21 @@ async function setupCopilotAndModel(currentModel: string): Promise<string> {
     console.log(chalk.yellow(`  Keeping current model: ${currentModel}\n`));
     await stopRuntime().catch(() => {});
     return currentModel;
+  }
+}
+
+function ensureSoulFile(workspacePath: string): void {
+  const soulPath = getSoulPath(workspacePath);
+  if (existsSync(soulPath)) return;
+
+  // Copy the template from templates/SOUL.md
+  const devTemplatePath = join(process.cwd(), 'templates', 'SOUL.md');
+  const distTemplatePath = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'templates', 'SOUL.md');
+  const src = existsSync(devTemplatePath) ? devTemplatePath : distTemplatePath;
+
+  if (existsSync(src)) {
+    mkdirSync(dirname(soulPath), { recursive: true });
+    copyFileSync(src, soulPath);
+    logger.debug(`Soul file created at ${soulPath}`);
   }
 }
