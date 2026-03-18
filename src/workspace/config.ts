@@ -49,7 +49,7 @@ export function getConfigPath(workspacePath: string): string {
 }
 
 export function getDbPath(workspacePath: string): string {
-  return join(workspacePath, '.cawpilot', 'db.sqlite');
+  return join(workspacePath, '.cawpilot', 'db', 'data.sqlite');
 }
 
 export function getSkillsPath(workspacePath: string): string {

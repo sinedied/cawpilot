@@ -27,7 +27,7 @@ describe('workspace/config', () => {
 
   it('returns correct paths', () => {
     expect(getConfigPath('/workspace')).toBe('/workspace/.cawpilot/config.json');
-    expect(getDbPath('/workspace')).toBe('/workspace/.cawpilot/db.sqlite');
+    expect(getDbPath('/workspace')).toBe('/workspace/.cawpilot/db/data.sqlite');
     expect(getSkillsPath('/workspace')).toBe('/workspace/.cawpilot/skills');
   });
 

@@ -98,7 +98,7 @@ function checkConfig(workspacePath: string): CheckResult {
 }
 
 function checkDatabase(workspacePath: string): CheckResult {
-  const dbDir = getDbPath(workspacePath).replace('/db.sqlite', '');
+  const dbDir = getDbPath(workspacePath).replace('/data.sqlite', '');
   try {
     if (!existsSync(dbDir)) {
       return { name: 'Database', ok: true, detail: 'Directory will be created on start' };

@@ -113,7 +113,7 @@ npx tsx src/index.ts doctor
 ### Key paths
 
 - Config: `<workspace>/.cawpilot/config.json`
-- Database: `<workspace>/.cawpilot/db.sqlite`
+- Database: `<workspace>/.cawpilot/db/data.sqlite`
 - Active skills: `<workspace>/.cawpilot/skills/`
 - Task status: `<workspace>/TODO.md`
 
@@ -153,7 +153,7 @@ npx tsx src/index.ts doctor
 
 - Run `cawpilot doctor` to verify: Copilot CLI installed, GitHub auth, repos accessible, channels configured, SQLite writable
 - Use `cawpilot start --debug` for verbose logging (dashboard mode suppresses logs by default)
-- SQLite database can be inspected directly at `<workspace>/.cawpilot/db.sqlite`
+- SQLite database can be inspected directly at `<workspace>/.cawpilot/db/data.sqlite`
 - Copilot SDK supports `logLevel: "debug"` for SDK-level debugging
 - Dashboard notification line shows pairing events, errors, and channel status
 
