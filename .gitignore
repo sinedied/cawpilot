@@ -5,5 +5,5 @@ dist/
 output/
 *.pyc
 .cawpilot/
-TODO
+/TODO*
 .agents/
