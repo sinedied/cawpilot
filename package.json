@@ -1,7 +1,7 @@
 {
   "name": "cawpilot",
   "version": "0.1.0",
-  "description": "Autonomous agent assistant built on GitHub Copilot SDK, accessible via Telegram, HTTP API, and CLI",
+  "description": "Your always-on personal assistant built on GitHub Copilot SDK",
   "type": "module",
   "bin": {
     "cawpilot": "./dist/index.js"
