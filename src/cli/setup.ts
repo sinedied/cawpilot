@@ -10,7 +10,6 @@ import {
   loadConfig,
   saveConfig,
   getSkillsPath,
-  getSoulPath,
   type CawpilotConfig,
   type ChannelConfig,
 } from '../workspace/config.js';
@@ -72,7 +71,8 @@ export async function runSetup(workspacePath: string): Promise<void> {
   // Save
   saveConfig(config);
   copyEnabledSkills(workspacePath, skills);
-  ensureSoulFile(workspacePath);
+  ensureTemplate(workspacePath, 'SOUL.md');
+  ensureTemplate(workspacePath, 'USER.md');
 
   console.log(chalk.bold.green('\n✅ Setup complete!\n'));
   console.log(chalk.dim('Customize your agent personality in .cawpilot/soul.md'));
@@ -240,19 +240,18 @@ async function setupCopilotAndModel(currentModel: string): Promise<string> {
   }
 }
 
-function ensureSoulFile(workspacePath: string): void {
-  const soulPath = getSoulPath(workspacePath);
-  if (existsSync(soulPath)) return;
+function ensureTemplate(workspacePath: string, filename: string): void {
+  const targetPath = join(workspacePath, '.cawpilot', filename);
+  if (existsSync(targetPath)) return;
 
-  // Copy the template from templates/SOUL.md
-  const devTemplatePath = join(process.cwd(), 'templates', 'SOUL.md');
-  const distTemplatePath = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'templates', 'SOUL.md');
-  const src = existsSync(devTemplatePath) ? devTemplatePath : distTemplatePath;
+  const devPath = join(process.cwd(), 'templates', filename);
+  const distPath = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'templates', filename);
+  const src = existsSync(devPath) ? devPath : distPath;
 
   if (existsSync(src)) {
-    mkdirSync(dirname(soulPath), { recursive: true });
-    copyFileSync(src, soulPath);
-    logger.debug(`Soul file created at ${soulPath}`);
+    mkdirSync(dirname(targetPath), { recursive: true });
+    copyFileSync(src, targetPath);
+    logger.debug(`Template ${filename} created at ${targetPath}`);
   }
 }
 
