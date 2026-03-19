@@ -1,13 +1,12 @@
 import { Bot } from 'grammy';
 import { logger } from '../utils/logger.js';
-import type { Channel, MessageHandler, PairCommandHandler, BootstrapHandler } from './types.js';
+import type { Channel, MessageHandler, CommandHandler } from './types.js';
 
 export class TelegramChannel implements Channel {
   readonly name = 'telegram';
   private bot: Bot | undefined;
   private allowList: Set<string>;
-  private pairHandler: PairCommandHandler | undefined;
-  private bootstrapHandler: BootstrapHandler | undefined;
+  private commandHandler: CommandHandler | undefined;
 
   constructor(
     private readonly token: string,
@@ -16,12 +15,8 @@ export class TelegramChannel implements Channel {
     this.allowList = new Set(allowList);
   }
 
-  setPairHandler(handler: PairCommandHandler): void {
-    this.pairHandler = handler;
-  }
-
-  setBootstrapHandler(handler: BootstrapHandler): void {
-    this.bootstrapHandler = handler;
+  setCommandHandler(handler: CommandHandler): void {
+    this.commandHandler = handler;
   }
 
   isLinked(chatId: string): boolean {
@@ -43,23 +38,31 @@ export class TelegramChannel implements Channel {
       const chatId = ctx.chat.id.toString();
       const text = ctx.message.text.trim();
 
-      // Handle /pair command from any sender (linked or not)
-      if (text.startsWith('/pair')) {
-        const parts = text.split(/\s+/);
-        const code = parts[1]; // undefined if just "/pair"
-        this.pairHandler?.('telegram', chatId, code);
+      // Handle slash commands — /pair is allowed from anyone, others require linking
+      if (text.startsWith('/')) {
+        const parts = text.slice(1).split(/\s+/);
+        const command = parts[0];
+        const args = parts.slice(1);
+
+        // /pair is special: allowed from unlinked senders
+        if (command === 'pair') {
+          this.commandHandler?.(command, 'telegram', chatId, args);
+          return;
+        }
+
+        // All other commands require linked sender
+        if (!this.isLinked(chatId)) {
+          logger.debug(`Dropping command /${command} from unlinked Telegram chat ${chatId}`);
+          return;
+        }
+
+        this.commandHandler?.(command, 'telegram', chatId, args);
         return;
       }
 
       // Drop messages from unlinked senders
       if (!this.isLinked(chatId)) {
         logger.debug(`Dropping message from unlinked Telegram chat ${chatId}`);
-        return;
-      }
-
-      // Handle /bootstrap command (linked only)
-      if (text === '/bootstrap') {
-        this.bootstrapHandler?.('telegram', chatId);
         return;
       }
 

@@ -1,20 +1,15 @@
 import * as readline from 'node:readline';
 import chalk from 'chalk';
-import type { Channel, MessageHandler, PairCommandHandler, BootstrapHandler } from './types.js';
+import type { Channel, MessageHandler, CommandHandler } from './types.js';
 
 export class CliChannel implements Channel {
   readonly name = 'cli';
   private rl: readline.Interface | undefined;
   private onMessage: MessageHandler | undefined;
-  private pairHandler: PairCommandHandler | undefined;
-  private bootstrapHandler: BootstrapHandler | undefined;
+  private commandHandler: CommandHandler | undefined;
 
-  setPairHandler(handler: PairCommandHandler): void {
-    this.pairHandler = handler;
-  }
-
-  setBootstrapHandler(handler: BootstrapHandler): void {
-    this.bootstrapHandler = handler;
+  setCommandHandler(handler: CommandHandler): void {
+    this.commandHandler = handler;
   }
 
   /** Expose readline for dashboard coordination */
@@ -26,8 +21,6 @@ export class CliChannel implements Channel {
     this.onMessage = onMessage;
     this.rl = readline.createInterface({
       input: process.stdin,
-      // Write to stderr so readline's prompt/echo doesn't clash with
-      // the dashboard rendering on stdout
       output: process.stderr,
       prompt: '',
       terminal: false,
@@ -37,17 +30,12 @@ export class CliChannel implements Channel {
       const content = line.trim();
       if (!content) return;
 
-      // Handle /pair command
-      if (content.startsWith('/pair')) {
-        const parts = content.split(/\s+/);
-        const code = parts[1];
-        this.pairHandler?.('cli', 'local', code);
-        return;
-      }
-
-      // Handle /bootstrap command
-      if (content === '/bootstrap') {
-        this.bootstrapHandler?.('cli', 'local');
+      // Handle slash commands
+      if (content.startsWith('/')) {
+        const parts = content.slice(1).split(/\s+/);
+        const command = parts[0];
+        const args = parts.slice(1);
+        this.commandHandler?.(command, 'cli', 'local', args);
         return;
       }
 

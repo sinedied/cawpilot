@@ -141,21 +141,32 @@ export async function runStart(workspacePath: string, options: StartOptions = { 
     logger.info(`Paired ${channelName}/${sender} via code from ${pair.sourceChannel}/${pair.sourceSender}`);
   };
 
-  // Wire pair handlers
-  cliChannel.setPairHandler(handlePairCommand);
-  const tgChannel = channels.get('telegram');
-  if (tgChannel?.setPairHandler) {
-    tgChannel.setPairHandler(handlePairCommand);
-  }
-
-  // Wire bootstrap handler
-  const handleBootstrap = async (channelName: string, sender: string) => {
-    const { runBootstrap } = await import('../agent/bootstrap.js');
-    await runBootstrap(config, db, channels, channelName, sender);
+  // Generic command handler for all channels
+  const handleCommand = async (command: string, channelName: string, sender: string, args: string[]) => {
+    switch (command) {
+      case 'pair':
+        await handlePairCommand(channelName, sender, args[0]);
+        break;
+      case 'bootstrap': {
+        const { runBootstrap } = await import('../agent/bootstrap.js');
+        await runBootstrap(config, db, channels, channelName, sender);
+        break;
+      }
+      default: {
+        const channel = channels.get(channelName);
+        if (channel) {
+          await channel.send(sender, `Unknown command: /${command}`);
+        }
+      }
+    }
   };
-  cliChannel.setBootstrapHandler(handleBootstrap);
-  if (tgChannel?.setBootstrapHandler) {
-    tgChannel.setBootstrapHandler(handleBootstrap);
+
+  // Wire command handler to all channels
+  cliChannel.setCommandHandler(handleCommand);
+  for (const [, ch] of channels) {
+    if (ch.setCommandHandler && ch !== cliChannel) {
+      ch.setCommandHandler(handleCommand);
+    }
   }
 
   // Start Copilot SDK runtime
