@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import ora from 'ora';
 import { randomBytes } from 'node:crypto';
-import { execSync } from 'node:child_process';
+import { execSync, spawnSync } from 'node:child_process';
 import { input, confirm, checkbox, select } from '@inquirer/prompts';
 import { readdirSync, existsSync, cpSync, copyFileSync, mkdirSync } from 'node:fs';
 import { join, basename, dirname } from 'node:path';
@@ -14,7 +14,7 @@ import {
   type ChannelConfig,
 } from '../workspace/config.js';
 import { ensureWorkspace, getGitHubUser } from '../workspace/manager.js';
-import { startRuntime, stopRuntime, listAvailableModels } from '../agent/runtime.js';
+import { startRuntime, stopRuntime, listAvailableModels, checkCopilotAuth } from '../agent/runtime.js';
 import { logger } from '../utils/logger.js';
 
 export async function runSetup(workspacePath: string): Promise<void> {
@@ -32,13 +32,36 @@ export async function runSetup(workspacePath: string): Promise<void> {
 
   // Step 2: GitHub auth
   console.log(chalk.bold('\nStep 2: GitHub Authentication'));
-  const spinner = ora('Checking GitHub authentication...').start();
-  const user = getGitHubUser();
+  let spinner = ora('Checking GitHub CLI...').start();
 
-  if (!user) {
-    spinner.fail('GitHub CLI not authenticated. Run: gh auth login');
+  try {
+    execSync('gh --version', { stdio: 'pipe' });
+    spinner.succeed('GitHub CLI found');
+  } catch {
+    spinner.fail('GitHub CLI not found.');
+    console.log(chalk.yellow('  Install it from: https://cli.github.com/'));
     return;
   }
+
+  spinner = ora('Checking GitHub authentication...').start();
+  let user = getGitHubUser();
+
+  if (!user) {
+    spinner.warn('GitHub CLI not authenticated');
+    console.log(chalk.dim('  Running: gh auth login\n'));
+    const result = spawnSync('gh', ['auth', 'login'], { stdio: 'inherit' });
+    if (result.status !== 0) {
+      console.log(chalk.red('\n  GitHub authentication failed.'));
+      return;
+    }
+    user = getGitHubUser();
+    if (!user) {
+      console.log(chalk.red('\n  GitHub authentication failed.'));
+      return;
+    }
+  }
+
+  spinner = ora().start();
   spinner.succeed(`Authenticated as ${chalk.green(user)}`);
 
   // Step 3: Persistence
@@ -203,13 +226,61 @@ async function setupCopilotAndModel(currentModel: string): Promise<string> {
     spinner.succeed(`Copilot CLI: ${chalk.dim(version)}`);
     copilotOk = true;
   } catch {
-    spinner.fail('Copilot CLI not found.');
-    console.log(chalk.yellow('  Install it from: https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli'));
-    console.log(chalk.yellow('  CawPilot requires the Copilot CLI to operate.\n'));
-    return currentModel;
+    spinner.warn('Copilot CLI not found');
+    const install = await confirm({
+      message: 'Install Copilot CLI now? (npm install -g @github/copilot)',
+      default: true,
+    });
+    if (install) {
+      const installSpinner = ora('Installing Copilot CLI...').start();
+      try {
+        execSync('npm install -g @github/copilot', { stdio: 'pipe' });
+        const version = execSync('copilot --version', { stdio: 'pipe' }).toString().trim();
+        installSpinner.succeed(`Copilot CLI installed: ${chalk.dim(version)}`);
+        copilotOk = true;
+      } catch {
+        installSpinner.fail('Failed to install Copilot CLI');
+        console.log(chalk.yellow('  Install manually: npm install -g @github/copilot\n'));
+        return currentModel;
+      }
+    } else {
+      console.log(chalk.yellow('  CawPilot requires the Copilot CLI to operate.\n'));
+      return currentModel;
+    }
   }
 
-  // Check auth by trying to start the runtime and list models
+  // Check auth via SDK, run copilot /login if needed
+  const authSpinner = ora('Checking Copilot authentication...').start();
+  try {
+    const authStatus = await checkCopilotAuth();
+    if (!authStatus.isAuthenticated) {
+      authSpinner.warn('Copilot CLI not authenticated');
+      console.log(chalk.dim('  Running: copilot /login\n'));
+      const loginResult = spawnSync('copilot', ['/login'], { stdio: 'inherit' });
+      if (loginResult.status !== 0) {
+        console.log(chalk.red('\n  Copilot authentication failed.'));
+        console.log(chalk.yellow(`  Keeping current model: ${currentModel}\n`));
+        await stopRuntime().catch(() => {});
+        return currentModel;
+      }
+      // Re-check after login
+      const recheck = await checkCopilotAuth();
+      if (!recheck.isAuthenticated) {
+        console.log(chalk.red('\n  Copilot authentication failed.'));
+        console.log(chalk.yellow(`  Keeping current model: ${currentModel}\n`));
+        await stopRuntime().catch(() => {});
+        return currentModel;
+      }
+      authSpinner.stop();
+      console.log(chalk.green(`  ✓ Authenticated as ${recheck.login ?? 'user'}`));
+    } else {
+      authSpinner.succeed(`Copilot authenticated as ${chalk.green(authStatus.login ?? 'user')}`);
+    }
+  } catch {
+    authSpinner.warn('Could not check Copilot auth status');
+  }
+
+  // List models
   const modelSpinner = ora('Fetching available models...').start();
   try {
     const models = await listAvailableModels();
@@ -234,7 +305,7 @@ async function setupCopilotAndModel(currentModel: string): Promise<string> {
     return chosen;
   } catch (error) {
     modelSpinner.fail('Failed to connect to Copilot CLI.');
-    console.log(chalk.yellow('  Make sure you are authenticated: copilot auth login'));
+    console.log(chalk.yellow('  Make sure you are authenticated: copilot /login'));
     console.log(chalk.yellow(`  Keeping current model: ${currentModel}\n`));
     await stopRuntime().catch(() => {});
     return currentModel;

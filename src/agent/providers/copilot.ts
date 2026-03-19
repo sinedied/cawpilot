@@ -3,7 +3,7 @@ import type { CopilotSession } from '@github/copilot-sdk';
 import { getSkillsPath } from '../../workspace/config.js';
 import { buildTools, type ToolContext } from '../tools.js';
 import { logger } from '../../utils/logger.js';
-import type { AgentProvider, AgentSession, AgentModel, SessionOptions, SendOptions } from '../provider.js';
+import type { AgentProvider, AgentSession, AgentModel, AuthStatus, SessionOptions, SendOptions } from '../provider.js';
 
 class CopilotAgentSession implements AgentSession {
   readonly sessionId: string;
@@ -92,6 +92,16 @@ export class CopilotProvider implements AgentProvider {
     } catch (error) {
       logger.warn(`Failed to list models: ${error}`);
       return [];
+    }
+  }
+
+  async checkAuth(): Promise<AuthStatus> {
+    await this.start();
+    try {
+      const status = await this.client!.getAuthStatus();
+      return { isAuthenticated: status.isAuthenticated, login: status.login };
+    } catch {
+      return { isAuthenticated: false };
     }
   }
 

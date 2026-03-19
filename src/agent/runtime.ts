@@ -1,7 +1,7 @@
-import type { AgentProvider, AgentSession, AgentModel, SessionOptions } from './provider.js';
+import type { AgentProvider, AgentSession, AgentModel, AuthStatus, SessionOptions } from './provider.js';
 import { CopilotProvider } from './providers/copilot.js';
 
-export type { AgentProvider, AgentSession, AgentModel, SessionOptions };
+export type { AgentProvider, AgentSession, AgentModel, AuthStatus, SessionOptions };
 
 let provider: AgentProvider | undefined;
 
@@ -37,6 +37,11 @@ export async function stopRuntime(): Promise<void> {
 export async function listAvailableModels(): Promise<AgentModel[]> {
   const p = getProvider();
   return p.listModels();
+}
+
+export async function checkCopilotAuth(): Promise<AuthStatus> {
+  const p = getProvider();
+  return p.checkAuth();
 }
 
 export async function createTaskSession(options: SessionOptions): Promise<AgentSession> {

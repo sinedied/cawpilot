@@ -62,6 +62,11 @@ export interface SessionOptions {
   onAssistantMessage?: (content: string) => void;
 }
 
+export interface AuthStatus {
+  isAuthenticated: boolean;
+  login?: string;
+}
+
 /**
  * An agent provider abstracts the underlying LLM/agent runtime.
  * Implement this interface to add support for a new agent backend.
@@ -74,6 +79,9 @@ export interface AgentProvider {
 
   /** Stop the provider and clean up resources */
   stop(): Promise<void>;
+
+  /** Check authentication status */
+  checkAuth(): Promise<AuthStatus>;
 
   /** List available models */
   listModels(): Promise<AgentModel[]>;
