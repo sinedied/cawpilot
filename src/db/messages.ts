@@ -1,10 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
 
+export type MessageRole = 'user' | 'assistant';
+
 export interface Message {
   id: string;
   channel: string;
   sender: string;
+  role: MessageRole;
   content: string;
   attachments: string[];
   status: 'unprocessed' | 'processing' | 'processed';
@@ -16,6 +19,7 @@ interface MessageRow {
   id: string;
   channel: string;
   sender: string;
+  role: string;
   content: string;
   attachments: string;
   status: string;
@@ -28,6 +32,7 @@ function rowToMessage(row: MessageRow): Message {
     id: row.id,
     channel: row.channel,
     sender: row.sender,
+    role: row.role as MessageRole,
     content: row.content,
     attachments: JSON.parse(row.attachments) as string[],
     status: row.status as Message['status'],
@@ -45,20 +50,57 @@ export function createMessage(
 ): Message {
   const id = randomUUID();
   db.prepare(`
-    INSERT INTO messages (id, channel, sender, content, attachments)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO messages (id, channel, sender, role, content, attachments)
+    VALUES (?, ?, ?, 'user', ?, ?)
   `).run(id, channel, sender, content, JSON.stringify(attachments));
 
   return {
     id,
     channel,
     sender,
+    role: 'user',
     content,
     attachments,
     status: 'unprocessed',
     taskId: null,
     createdAt: new Date().toISOString(),
   };
+}
+
+export function createBotMessage(
+  db: Database.Database,
+  channel: string,
+  recipient: string,
+  content: string,
+  taskId?: string,
+): Message {
+  const id = randomUUID();
+  db.prepare(`
+    INSERT INTO messages (id, channel, sender, role, content, status, task_id)
+    VALUES (?, ?, ?, 'assistant', ?, 'processed', ?)
+  `).run(id, channel, recipient, content, taskId ?? null);
+
+  return {
+    id,
+    channel,
+    sender: recipient,
+    role: 'assistant',
+    content,
+    attachments: [],
+    status: 'processed',
+    taskId: taskId ?? null,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+export function getRecentHistory(db: Database.Database, limit: number = 10): Message[] {
+  const rows = db.prepare(`
+    SELECT * FROM messages
+    WHERE status IN ('processing', 'processed')
+    ORDER BY created_at DESC, rowid DESC
+    LIMIT ?
+  `).all(limit) as MessageRow[];
+  return rows.map(rowToMessage).reverse();
 }
 
 export function getUnprocessedMessages(db: Database.Database): Message[] {

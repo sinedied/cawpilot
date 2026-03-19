@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type Database from 'better-sqlite3';
 import { updateTaskStatus } from '../db/tasks.js';
+import { createBotMessage } from '../db/messages.js';
 import type { Channel } from '../channels/types.js';
 import { createBranch, createPullRequest, pushBranch } from '../workspace/manager.js';
 import { logger } from '../utils/logger.js';
@@ -61,6 +62,7 @@ export function buildTools(ctx: ToolContext) {
         const channel = ctx.channels.get(chName);
         if (channel) {
           await channel.send(chSender, content);
+          createBotMessage(ctx.db, chName, chSender, content, ctx.taskId);
           return { sent: true, channel: chName };
         }
         return { sent: false, error: `Channel "${chName}" not found` };

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import type { CawpilotConfig } from '../workspace/config.js';
 import { loadSoul } from '../workspace/config.js';
 import type { Channel } from '../channels/types.js';
-import { getUnprocessedMessages, markMessagesProcessing } from '../db/messages.js';
+import { getUnprocessedMessages, markMessagesProcessing, getRecentHistory } from '../db/messages.js';
 import { createTask, getActiveTasks, getAllTasks, type Task } from '../db/tasks.js';
 import { getDueScheduledTasks, updateScheduledTaskRun } from '../db/scheduled.js';
 import { createTaskSession } from './runtime.js';
@@ -103,6 +103,12 @@ export class Orchestrator {
   private async triageMessages(
     messages: ReturnType<typeof getUnprocessedMessages>,
   ): Promise<{ title: string; messageIds: string[] }[]> {
+    // Fetch recent history for context
+    const history = getRecentHistory(this.db, this.config.contextMessagesCount);
+    const historyContext = history.length > 0
+      ? `Recent conversation history (for context):\n${history.map((m) => `[${m.role}] ${m.channel}/${m.sender}: ${m.content}`).join('\n')}\n\n`
+      : '';
+
     // For a single message, create a task directly without LLM triage
     if (messages.length === 1) {
       return [{
@@ -128,7 +134,7 @@ export class Orchestrator {
         .join('\n');
 
       const response = await session.sendAndWait({
-        prompt: `Group these messages into tasks:\n${messageList}`,
+        prompt: `${historyContext}Group these new messages into tasks:\n${messageList}`,
       }, 120_000);
       await session.disconnect();
 

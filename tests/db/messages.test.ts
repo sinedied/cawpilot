@@ -2,7 +2,9 @@ import Database from 'better-sqlite3';
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   createMessage,
+  createBotMessage,
   getUnprocessedMessages,
+  getRecentHistory,
   markMessagesProcessing,
   markMessagesProcessed,
   getMessagesByTask,
@@ -23,6 +25,7 @@ describe('db/messages', () => {
         id TEXT PRIMARY KEY,
         channel TEXT NOT NULL,
         sender TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'user',
         content TEXT NOT NULL,
         attachments TEXT DEFAULT '[]',
         status TEXT NOT NULL DEFAULT 'unprocessed',
@@ -104,5 +107,55 @@ describe('db/messages', () => {
     createMessage(db, 'cli', 'local', 'a');
     createMessage(db, 'cli', 'local', 'b');
     expect(getMessageCount(db)).toBe(2);
+  });
+
+  it('creates a user message with role user', () => {
+    const msg = createMessage(db, 'cli', 'local', 'hello');
+    expect(msg.role).toBe('user');
+  });
+
+  it('creates a bot message with role assistant', () => {
+    const msg = createBotMessage(db, 'cli', 'local', 'reply', 'task-1');
+    expect(msg.role).toBe('assistant');
+    expect(msg.status).toBe('processed');
+    expect(msg.taskId).toBe('task-1');
+  });
+
+  it('creates a bot message without task ID', () => {
+    const msg = createBotMessage(db, 'cli', 'local', 'hi');
+    expect(msg.role).toBe('assistant');
+    expect(msg.taskId).toBeNull();
+  });
+
+  it('retrieves recent history in chronological order', () => {
+    const m1 = createMessage(db, 'cli', 'local', 'first');
+    markMessagesProcessing(db, [m1.id], 'task-1');
+    createBotMessage(db, 'cli', 'local', 'reply to first', 'task-1');
+
+    const history = getRecentHistory(db, 10);
+    expect(history).toHaveLength(2);
+    expect(history[0].role).toBe('user');
+    expect(history[0].content).toBe('first');
+    expect(history[1].role).toBe('assistant');
+    expect(history[1].content).toBe('reply to first');
+  });
+
+  it('limits history to requested count', () => {
+    for (let i = 0; i < 5; i++) {
+      const m = createMessage(db, 'cli', 'local', `msg-${i}`);
+      markMessagesProcessing(db, [m.id], `task-${i}`);
+    }
+
+    const history = getRecentHistory(db, 3);
+    expect(history).toHaveLength(3);
+  });
+
+  it('excludes unprocessed messages from history', () => {
+    createMessage(db, 'cli', 'local', 'unprocessed');
+    createBotMessage(db, 'cli', 'local', 'bot reply');
+
+    const history = getRecentHistory(db, 10);
+    expect(history).toHaveLength(1);
+    expect(history[0].role).toBe('assistant');
   });
 });

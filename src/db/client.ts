@@ -32,6 +32,7 @@ function initSchema(db: Database.Database): void {
       id TEXT PRIMARY KEY,
       channel TEXT NOT NULL,
       sender TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'user',
       content TEXT NOT NULL,
       attachments TEXT DEFAULT '[]',
       status TEXT NOT NULL DEFAULT 'unprocessed',

@@ -4,6 +4,9 @@
  */
 
 export const TRIAGE_SYSTEM_PROMPT = `You are a task triage system. Given a list of user messages, group them into tasks.
+
+You will also receive recent conversation history for context. Use it to determine if new messages are follow-ups or answers to previous questions — if so, group them with the related context.
+
 Output ONLY a JSON array with objects containing "title" (short task description) and "messageIds" (array of message IDs to include).
 Group related messages together. Each message should appear in exactly one task.`;
 
