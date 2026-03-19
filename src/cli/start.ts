@@ -176,6 +176,20 @@ export async function runStart(workspacePath: string, options: StartOptions = { 
         await channel.send(sender, lines.join('\n'));
         break;
       }
+      case 'backup': {
+        const channel = channels.get(channelName);
+        if (!channel) break;
+
+        if (!config.persistence.enabled) {
+          await channel.send(sender, '⚠️ Persistence is not enabled. Run `cawpilot setup` to enable it.');
+          break;
+        }
+
+        const { runBackup } = await import('../workspace/persistence.js');
+        const result = runBackup(config);
+        await channel.send(sender, result.success ? `✅ ${result.message}` : `❌ ${result.message}`);
+        break;
+      }
       default: {
         const channel = channels.get(channelName);
         if (channel) {

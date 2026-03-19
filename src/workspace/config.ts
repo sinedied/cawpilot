@@ -27,6 +27,7 @@ export interface CawpilotConfig {
   persistence: {
     enabled: boolean;
     repo: string;
+    backupIntervalDays: number;
   };
   provider?: ProviderConfig;
   model: string;
@@ -43,6 +44,7 @@ const DEFAULT_CONFIG: CawpilotConfig = {
   persistence: {
     enabled: false,
     repo: '',
+    backupIntervalDays: 1,
   },
   model: 'gpt-4.1',
   workspacePath: '',

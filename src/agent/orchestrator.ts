@@ -1,9 +1,11 @@
 import type Database from 'better-sqlite3';
 import chalk from 'chalk';
+import { execSync } from 'node:child_process';
 import { writeFileSync, readFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CawpilotConfig } from '../workspace/config.js';
 import { getContextFiles } from '../workspace/config.js';
+import { runBackup } from '../workspace/persistence.js';
 import type { Channel } from '../channels/types.js';
 import { getUnprocessedMessages, markMessagesProcessing, getRecentHistory } from '../db/messages.js';
 import { createTask, getActiveTasks, getAllTasks, type Task } from '../db/tasks.js';
@@ -22,6 +24,7 @@ export class Orchestrator {
   private pollTimer: ReturnType<typeof setInterval> | undefined;
   private schedulerTimer: ReturnType<typeof setInterval> | undefined;
   private cleanupTimer: ReturnType<typeof setInterval> | undefined;
+  private backupTimer: ReturnType<typeof setInterval> | undefined;
   private runningTasks = new Map<string, Promise<void>>();
   private _processedCount = 0;
 
@@ -47,6 +50,11 @@ export class Orchestrator {
     // Auto-cleanup: check once per hour, archive if interval has passed
     this.cleanupTimer = setInterval(() => this.autoCleanup(), 60 * 60_000);
 
+    // Auto-backup: check once per hour if persistence is enabled
+    if (this.config.persistence.enabled) {
+      this.backupTimer = setInterval(() => this.autoBackup(), 60 * 60_000);
+    }
+
     // Run immediately on start
     this.processMessages();
   }
@@ -55,9 +63,11 @@ export class Orchestrator {
     if (this.pollTimer) clearInterval(this.pollTimer);
     if (this.schedulerTimer) clearInterval(this.schedulerTimer);
     if (this.cleanupTimer) clearInterval(this.cleanupTimer);
+    if (this.backupTimer) clearInterval(this.backupTimer);
     this.pollTimer = undefined;
     this.schedulerTimer = undefined;
     this.cleanupTimer = undefined;
+    this.backupTimer = undefined;
     logger.info('Orchestrator stopped');
   }
 
@@ -276,6 +286,30 @@ export class Orchestrator {
 
     if (daysSince >= this.config.cleanupIntervalDays) {
       this.archiveCompletedTasks();
+    }
+  }
+
+  private autoBackup(): void {
+    if (!this.config.persistence.enabled) return;
+
+    // Check last backup by looking at git log
+    try {
+      const lastCommit = execSync('git log -1 --format=%ci', { cwd: this.config.workspacePath, stdio: 'pipe' })
+        .toString().trim();
+
+      if (lastCommit) {
+        const daysSince = (Date.now() - new Date(lastCommit).getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSince < this.config.persistence.backupIntervalDays) {
+          return;
+        }
+      }
+    } catch {
+      // No git history, proceed with backup
+    }
+
+    const result = runBackup(this.config);
+    if (result.success) {
+      setNotification(chalk.green(`💾 Auto-backup: ${result.message}`));
     }
   }
 }

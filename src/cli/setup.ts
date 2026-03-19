@@ -53,9 +53,9 @@ export async function runSetup(workspacePath: string): Promise<void> {
       message: 'Repository name:',
       default: `${user}/my-cawpilot`,
     });
-    config.persistence = { enabled: true, repo: repoName };
+    config.persistence = { enabled: true, repo: repoName, backupIntervalDays: 1 };
   } else {
-    config.persistence = { enabled: false, repo: '' };
+    config.persistence = { enabled: false, repo: '', backupIntervalDays: 1 };
   }
 
   // Step 4: Skills

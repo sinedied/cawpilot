@@ -147,7 +147,7 @@ describe('integration: workspace config round-trip', () => {
       maxConcurrency: 4,
       contextMessagesCount: 10,
       cleanupIntervalDays: 7,
-      persistence: { enabled: true, repo: 'user/my-cawpilot' },
+      persistence: { enabled: true, repo: 'user/my-cawpilot', backupIntervalDays: 1 },
       model: 'claude-sonnet-4.5',
       workspacePath: tmpDir,
     };
