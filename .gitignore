@@ -1,9 +1,9 @@
+/.agents/
 node_modules/
 dist/
 .DS_Store
 *.env*
-workspace/
+/workspace/
 *.pyc
 .cawpilot/
 /TODO*
-.agents/
