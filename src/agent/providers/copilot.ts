@@ -12,6 +12,31 @@ class CopilotAgentSession implements AgentSession {
     this.sessionId = session.sessionId;
   }
 
+  async send(
+    options: { prompt: string },
+  ): Promise<{ data?: { content?: string } } | undefined> {
+    return new Promise((resolve, reject) => {
+      let lastMessage: { data?: { content?: string } } | undefined;
+
+      const unsubscribe = this.session.on((event) => {
+        if (event.type === 'assistant.message') {
+          lastMessage = event as { data?: { content?: string } };
+        } else if (event.type === 'session.idle') {
+          unsubscribe();
+          resolve(lastMessage);
+        } else if (event.type === 'session.error') {
+          unsubscribe();
+          reject(new Error((event as { data?: { message?: string } }).data?.message ?? 'Session error'));
+        }
+      });
+
+      this.session.send(options).catch((err) => {
+        unsubscribe();
+        reject(err);
+      });
+    });
+  }
+
   async sendAndWait(
     options: { prompt: string },
     timeout?: number,

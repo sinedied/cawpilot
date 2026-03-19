@@ -12,12 +12,20 @@ export class CliChannel implements Channel {
     this.pairHandler = handler;
   }
 
+  /** Expose readline for dashboard coordination */
+  getRl(): readline.Interface | undefined {
+    return this.rl;
+  }
+
   async start(onMessage: MessageHandler): Promise<void> {
     this.onMessage = onMessage;
     this.rl = readline.createInterface({
       input: process.stdin,
-      output: process.stdout,
+      // Write to stderr so readline's prompt/echo doesn't clash with
+      // the dashboard rendering on stdout
+      output: process.stderr,
       prompt: '',
+      terminal: false,
     });
 
     this.rl.on('line', (line) => {
@@ -46,8 +54,8 @@ export class CliChannel implements Channel {
   }
 
   async send(_sender: string, content: string): Promise<void> {
-    console.log(`${chalk.cyan('CawPilot')}${chalk.dim(':')} ${content}`);
-    // Re-print prompt marker after output
+    // Output via stdout — the dashboard refresh will re-print the prompt after
+    process.stdout.write(`\n${chalk.cyan('CawPilot')}${chalk.dim(':')} ${content}\n`);
     process.stdout.write(chalk.green('> '));
   }
 }

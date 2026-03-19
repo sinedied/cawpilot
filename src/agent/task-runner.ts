@@ -55,9 +55,9 @@ export async function runTask(
 
     setTaskSessionId(db, task.id, session.sessionId);
 
-    await session.sendAndWait({
+    await session.send({
       prompt: `Process this task: ${task.title}\n\nContext:\n${messageContext}`,
-    }, 0);
+    });
 
     await session.disconnect();
     logger.info(`Task ${task.id} completed`);

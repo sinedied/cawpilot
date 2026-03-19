@@ -17,9 +17,18 @@ export interface AgentSession {
   readonly sessionId: string;
 
   /**
-   * Send a prompt and wait for the session to become idle.
+   * Send a prompt and wait for the session to become idle, with no timeout.
    * @param options - prompt and optional attachments
-   * @param timeout - timeout in ms (0 = no timeout)
+   * @returns the final assistant message, or undefined
+   */
+  send(
+    options: { prompt: string },
+  ): Promise<{ data?: { content?: string } } | undefined>;
+
+  /**
+   * Send a prompt and wait for idle with a timeout.
+   * @param options - prompt and optional attachments
+   * @param timeout - timeout in ms
    * @returns the final assistant message, or undefined
    */
   sendAndWait(

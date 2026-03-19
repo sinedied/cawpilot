@@ -2,12 +2,11 @@ import chalk from 'chalk';
 import type { Orchestrator } from '../agent/orchestrator.js';
 import { getTaskCounts } from '../db/tasks.js';
 import { getMessageCount } from '../db/messages.js';
+import { getActiveTasks } from '../db/tasks.js';
 import type Database from 'better-sqlite3';
 
-// Dashboard: 7 stats lines + 1 notification line + 1 prompt line = 9
-const DASHBOARD_LINES = 9;
-
 let notificationText = '';
+let dashboardLineCount = 0;
 
 export function setNotification(text: string): void {
   notificationText = text;
@@ -15,6 +14,19 @@ export function setNotification(text: string): void {
 
 export function clearNotification(): void {
   notificationText = '';
+}
+
+function getWidth(): number {
+  return process.stdout.columns || 60;
+}
+
+function hLine(): string {
+  const w = Math.max(getWidth() - 2, 20);
+  return chalk.dim(` ${'─'.repeat(w)}`);
+}
+
+function pad(label: string, value: string): string {
+  return ` ${chalk.dim(label)} ${value}`;
 }
 
 export function renderDashboard(
@@ -25,42 +37,78 @@ export function renderDashboard(
   const uptime = formatUptime(Date.now() - startTime.getTime());
   const counts = getTaskCounts(db);
   const messageCount = getMessageCount(db);
+  const w = getWidth();
 
-  const notifLine = notificationText
-    ? ` ${notificationText}`
-    : '';
+  const lines: string[] = [];
 
-  const lines = [
-    chalk.bold.cyan(' 🐦 CawPilot'),
-    chalk.dim(` ─────────────────────────────`),
-    ` ${chalk.dim('Uptime:')}    ${uptime}`,
-    ` ${chalk.dim('Messages:')} ${messageCount}`,
-    ` ${chalk.dim('Tasks:')}    ${chalk.yellow(String(counts['in-progress']))} active · ${chalk.green(String(counts.completed))} done · ${chalk.red(String(counts.failed))} failed`,
-    ` ${chalk.dim('Queue:')}    ${counts.pending} pending`,
-    chalk.dim(` ─────────────────────────────`),
-    notifLine,
-    chalk.green('> '),
-  ];
+  // Header
+  const title = ' 🐦 CawPilot';
+  lines.push(chalk.bold.cyan(title));
+  lines.push(hLine());
 
+  // Stats
+  lines.push(pad('Uptime:   ', uptime));
+  lines.push(pad('Messages: ', String(messageCount)));
+  lines.push(pad('Tasks:    ', `${chalk.yellow(String(counts['in-progress']))} active · ${chalk.green(String(counts.completed))} done · ${chalk.red(String(counts.failed))} failed`));
+  lines.push(pad('Queue:    ', `${counts.pending} pending`));
+
+  // Active task names
+  const active = getActiveTasks(db);
+  if (active.length > 0) {
+    lines.push(hLine());
+    for (const t of active.slice(0, 3)) {
+      const icon = t.status === 'in-progress' ? chalk.yellow('⟳') : t.status === 'need-info' ? chalk.magenta('?') : chalk.dim('·');
+      const title = t.title.length > w - 8 ? t.title.slice(0, w - 11) + '...' : t.title;
+      lines.push(` ${icon} ${chalk.dim(title)}`);
+    }
+    if (active.length > 3) {
+      lines.push(chalk.dim(`   +${active.length - 3} more`));
+    }
+  }
+
+  lines.push(hLine());
+
+  // Notification area (always present, blank if nothing)
+  lines.push(notificationText ? ` ${notificationText}` : '');
+
+  dashboardLineCount = lines.length;
   return lines.join('\n');
 }
 
 /**
- * Moves the cursor up to the dashboard area and re-renders in place,
- * then repositions cursor at the prompt line.
+ * Clear screen and draw the initial dashboard + prompt.
+ */
+export function initDashboard(
+  orchestrator: Orchestrator,
+  db: Database.Database,
+  startTime: Date,
+): void {
+  process.stdout.write('\x1B[2J\x1B[H'); // clear screen, cursor home
+  const content = renderDashboard(orchestrator, db, startTime);
+  process.stdout.write(content + '\n');
+  process.stdout.write(chalk.green('> '));
+}
+
+/**
+ * Redraws the dashboard at the top of the screen using absolute positioning.
+ * Uses DEC save/restore cursor so the user's prompt position is preserved.
  */
 export function refreshDashboard(
   orchestrator: Orchestrator,
   db: Database.Database,
   startTime: Date,
 ): void {
+  if (dashboardLineCount === 0) return;
+
   const content = renderDashboard(orchestrator, db, startTime);
-  // Save cursor, move to top of dashboard, clear from there, re-print, restore cursor
-  process.stdout.write(`\x1B[s`); // save cursor
-  process.stdout.write(`\x1B[${DASHBOARD_LINES}A\x1B[0G`); // move up
-  process.stdout.write(`\x1B[0J`); // clear from cursor to end
-  process.stdout.write(content);
-  process.stdout.write(`\x1B[u`); // restore cursor
+  const lines = content.split('\n');
+
+  process.stdout.write('\x1B7');       // DEC save cursor
+  process.stdout.write('\x1B[1;1H');   // move to row 1, col 1
+  for (const line of lines) {
+    process.stdout.write(`${line}\x1B[K\n`); // line + clear to EOL
+  }
+  process.stdout.write('\x1B8');       // DEC restore cursor
 }
 
 function formatUptime(ms: number): string {

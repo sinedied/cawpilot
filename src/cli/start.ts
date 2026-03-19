@@ -9,7 +9,7 @@ import { Orchestrator } from '../agent/orchestrator.js';
 import { CliChannel } from '../channels/cli.js';
 import { TelegramChannel } from '../channels/telegram.js';
 import { HttpChannel } from '../channels/http.js';
-import { renderDashboard, refreshDashboard, setNotification } from './dashboard.js';
+import { initDashboard, renderDashboard, refreshDashboard, setNotification } from './dashboard.js';
 import type { Channel } from '../channels/types.js';
 import { logger } from '../utils/logger.js';
 
@@ -178,8 +178,8 @@ export async function runStart(workspacePath: string, options: StartOptions = { 
     console.log(renderDashboard(orchestrator, db, startTime));
     console.log(chalk.dim('Debug logging enabled. Press Ctrl+C to stop.\n'));
   } else {
-    // Normal mode: dashboard view with in-place refresh
-    process.stdout.write(renderDashboard(orchestrator, db, startTime));
+    // Normal mode: clear screen, draw dashboard + prompt
+    initDashboard(orchestrator, db, startTime);
   }
 
   const dashboardInterval = options.debug ? undefined : setInterval(() => {

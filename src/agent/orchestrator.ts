@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+import chalk from 'chalk';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CawpilotConfig } from '../workspace/config.js';
@@ -10,6 +11,7 @@ import { getDueScheduledTasks, updateScheduledTaskRun } from '../db/scheduled.js
 import { createTaskSession } from './runtime.js';
 import { TRIAGE_SYSTEM_PROMPT, buildTaskSystemPrompt } from './prompts.js';
 import { runTask } from './task-runner.js';
+import { setNotification } from '../cli/dashboard.js';
 import { logger } from '../utils/logger.js';
 
 const POLL_INTERVAL_MS = 5_000;
@@ -74,10 +76,15 @@ export class Orchestrator {
       for (const plan of taskPlan.slice(0, availableSlots)) {
         const task = createTask(this.db, plan.title);
         markMessagesProcessing(this.db, plan.messageIds, task.id);
+        setNotification(chalk.yellow(`⟳ Working on: ${task.title.slice(0, 40)}`));
 
         const taskPromise = runTask(task, this.config, this.db, this.channels)
           .then(() => {
             this._processedCount++;
+            setNotification(chalk.green(`✅ Task done: ${task.title.slice(0, 40)}`));
+          })
+          .catch(() => {
+            setNotification(chalk.red(`❌ Task failed: ${task.title.slice(0, 40)}`));
           })
           .finally(() => {
             this.runningTasks.delete(task.id);
@@ -182,7 +189,7 @@ export class Orchestrator {
         }),
       });
 
-      await session.sendAndWait({ prompt }, 0);
+      await session.send({ prompt });
       await session.disconnect();
       this._processedCount++;
     } catch (error) {
