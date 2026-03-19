@@ -145,6 +145,7 @@ describe('integration: workspace config round-trip', () => {
       repos: ['owner/repo1', 'owner/repo2'],
       skills: ['local-tunnel'],
       maxConcurrency: 4,
+      contextMessagesCount: 10,
       persistence: { enabled: true, repo: 'user/my-cawpilot' },
       model: 'claude-sonnet-4.5',
       workspacePath: tmpDir,

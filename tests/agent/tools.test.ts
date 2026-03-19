@@ -108,7 +108,7 @@ describe('agent/tools', () => {
   describe('list_channels', () => {
     it('lists all connected channels', async () => {
       const tools = buildTools(ctx());
-      const result = await tools.list_channels.handler({});
+      const result = await tools.list_channels.handler();
 
       expect(result.channels).toContain('cli');
       expect(result.channels).toContain('telegram');
