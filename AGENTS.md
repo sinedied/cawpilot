@@ -134,6 +134,7 @@ npx tsx src/index.ts doctor
 ## Security Considerations
 
 - **No secrets in code** — all credentials via environment variables or config file (gitignored)
+- **No secrets in output** — never print tokens, API keys, or other secrets to the console during setup or at runtime. Use masked placeholders (e.g. `<see .cawpilot/config.json>`) instead.
 - **Branch safety enforcement** — workspace manager rejects any git write operation not targeting a `cp-*` branch
 - **Pairing system** — `/pair` generates 8-char codes (XXXX-XXXX) valid for 5 minutes. Only linked channels or CLI can generate codes. `/pair <code>` from an unlinked channel completes linking. Allow lists persisted to config.
 - **HTTP API key** — generated during setup, required in `X-Api-Key` header, validated with timing-safe comparison
