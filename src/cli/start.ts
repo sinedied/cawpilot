@@ -148,6 +148,16 @@ export async function runStart(workspacePath: string, options: StartOptions = { 
     tgChannel.setPairHandler(handlePairCommand);
   }
 
+  // Wire bootstrap handler
+  const handleBootstrap = async (channelName: string, sender: string) => {
+    const { runBootstrap } = await import('../agent/bootstrap.js');
+    await runBootstrap(config, db, channels, channelName, sender);
+  };
+  cliChannel.setBootstrapHandler(handleBootstrap);
+  if (tgChannel?.setBootstrapHandler) {
+    tgChannel.setBootstrapHandler(handleBootstrap);
+  }
+
   // Start Copilot SDK runtime
   await startRuntime();
 

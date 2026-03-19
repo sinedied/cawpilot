@@ -22,8 +22,7 @@ export async function runSetup(workspacePath: string): Promise<void> {
   console.log(chalk.bold.cyan('\n🐦 Welcome to CawPilot Setup\n'));
   console.log(chalk.dim('This wizard will configure your CawPilot instance.\n'));
 
-  ensureWorkspace(workspacePath);
-  const config = loadConfig(workspacePath);
+  ensureWorkspace(workspacePath);  ensureGitignore(workspacePath);  const config = loadConfig(workspacePath);
 
   // Step 1: Channels
   console.log(chalk.bold('Step 1: Channels'));
@@ -75,8 +74,23 @@ export async function runSetup(workspacePath: string): Promise<void> {
   ensureSoulFile(workspacePath);
 
   console.log(chalk.bold.green('\n✅ Setup complete!\n'));
-  console.log(chalk.dim('Customize your agent personality in .cawpilot/SOUL.md'));
-  console.log(chalk.dim('Start CawPilot with: cawpilot start\n'));
+  console.log(chalk.dim('Customize your agent personality in .cawpilot/soul.md'));
+
+  const doBootstrap = await confirm({
+    message: 'Run initial bootstrapping to customize the agent to your needs?',
+    default: true,
+  });
+
+  if (doBootstrap) {
+    console.log(chalk.dim('\nStarting bootstrap... (you can also run it later with /bootstrap)\n'));
+    // Defer to start command which will handle the bootstrap
+    const { runBootstrapStandalone } = await import('../agent/bootstrap.js');
+    await runBootstrapStandalone(config);
+  } else {
+    console.log(chalk.dim('You can run /bootstrap anytime after starting CawPilot.'));
+  }
+
+  console.log(chalk.dim('\nStart CawPilot with: cawpilot start\n'));
 }
 
 async function setupChannels(existing: ChannelConfig[]): Promise<ChannelConfig[]> {
@@ -238,5 +252,19 @@ function ensureSoulFile(workspacePath: string): void {
     mkdirSync(dirname(soulPath), { recursive: true });
     copyFileSync(src, soulPath);
     logger.debug(`Soul file created at ${soulPath}`);
+  }
+}
+
+function ensureGitignore(workspacePath: string): void {
+  const gitignorePath = join(workspacePath, '.gitignore');
+  if (existsSync(gitignorePath)) return;
+
+  const devPath = join(process.cwd(), 'templates', '_.gitignore');
+  const distPath = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'templates', '_.gitignore');
+  const src = existsSync(devPath) ? devPath : distPath;
+
+  if (existsSync(src)) {
+    copyFileSync(src, gitignorePath);
+    logger.debug(`Gitignore created at ${gitignorePath}`);
   }
 }

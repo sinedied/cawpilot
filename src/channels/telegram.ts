@@ -1,12 +1,13 @@
 import { Bot } from 'grammy';
 import { logger } from '../utils/logger.js';
-import type { Channel, MessageHandler, PairCommandHandler } from './types.js';
+import type { Channel, MessageHandler, PairCommandHandler, BootstrapHandler } from './types.js';
 
 export class TelegramChannel implements Channel {
   readonly name = 'telegram';
   private bot: Bot | undefined;
   private allowList: Set<string>;
   private pairHandler: PairCommandHandler | undefined;
+  private bootstrapHandler: BootstrapHandler | undefined;
 
   constructor(
     private readonly token: string,
@@ -17,6 +18,10 @@ export class TelegramChannel implements Channel {
 
   setPairHandler(handler: PairCommandHandler): void {
     this.pairHandler = handler;
+  }
+
+  setBootstrapHandler(handler: BootstrapHandler): void {
+    this.bootstrapHandler = handler;
   }
 
   isLinked(chatId: string): boolean {
@@ -49,6 +54,12 @@ export class TelegramChannel implements Channel {
       // Drop messages from unlinked senders
       if (!this.isLinked(chatId)) {
         logger.debug(`Dropping message from unlinked Telegram chat ${chatId}`);
+        return;
+      }
+
+      // Handle /bootstrap command (linked only)
+      if (text === '/bootstrap') {
+        this.bootstrapHandler?.('telegram', chatId);
         return;
       }
 

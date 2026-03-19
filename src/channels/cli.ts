@@ -1,15 +1,20 @@
 import * as readline from 'node:readline';
 import chalk from 'chalk';
-import type { Channel, MessageHandler, PairCommandHandler } from './types.js';
+import type { Channel, MessageHandler, PairCommandHandler, BootstrapHandler } from './types.js';
 
 export class CliChannel implements Channel {
   readonly name = 'cli';
   private rl: readline.Interface | undefined;
   private onMessage: MessageHandler | undefined;
   private pairHandler: PairCommandHandler | undefined;
+  private bootstrapHandler: BootstrapHandler | undefined;
 
   setPairHandler(handler: PairCommandHandler): void {
     this.pairHandler = handler;
+  }
+
+  setBootstrapHandler(handler: BootstrapHandler): void {
+    this.bootstrapHandler = handler;
   }
 
   /** Expose readline for dashboard coordination */
@@ -37,6 +42,12 @@ export class CliChannel implements Channel {
         const parts = content.split(/\s+/);
         const code = parts[1];
         this.pairHandler?.('cli', 'local', code);
+        return;
+      }
+
+      // Handle /bootstrap command
+      if (content === '/bootstrap') {
+        this.bootstrapHandler?.('cli', 'local');
         return;
       }
 

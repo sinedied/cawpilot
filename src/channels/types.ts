@@ -14,6 +14,11 @@ export type MessageHandler = (message: ChannelMessage) => void | Promise<void>;
  */
 export type PairCommandHandler = (channel: string, sender: string, code?: string) => void | Promise<void>;
 
+/**
+ * Handler called when a /bootstrap command is received.
+ */
+export type BootstrapHandler = (channel: string, sender: string) => void | Promise<void>;
+
 export interface Channel {
   readonly name: string;
   start(onMessage: MessageHandler): Promise<void>;
@@ -21,4 +26,6 @@ export interface Channel {
   send(sender: string, content: string): Promise<void>;
   /** Set the handler for /pair commands. Called before start(). */
   setPairHandler?(handler: PairCommandHandler): void;
+  /** Set the handler for /bootstrap commands. Called before start(). */
+  setBootstrapHandler?(handler: BootstrapHandler): void;
 }
