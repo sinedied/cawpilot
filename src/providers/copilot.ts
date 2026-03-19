@@ -1,3 +1,4 @@
+import process from 'node:process';
 import {
   CopilotClient,
   defineTool,
@@ -29,6 +30,7 @@ class CopilotAgentSession implements AgentSession {
       let lastMessage: { data?: { content?: string } } | undefined;
 
       const unsubscribe = this.session.on((event) => {
+        // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
         switch (event.type) {
           case 'assistant.message': {
             lastMessage = event as { data?: { content?: string } };
@@ -54,7 +56,11 @@ class CopilotAgentSession implements AgentSession {
 
             break;
           }
-          // No default
+
+          default: {
+            // Ignore other events
+            break;
+          }
         }
       });
 

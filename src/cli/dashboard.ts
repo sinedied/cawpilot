@@ -1,3 +1,4 @@
+import process from 'node:process';
 import chalk from 'chalk';
 import type Database from 'better-sqlite3';
 import type { Orchestrator } from '../agent/orchestrator.js';

@@ -36,7 +36,7 @@ const SCHEDULER_INTERVAL_MS = 60_000;
 export class Orchestrator {
   private pollTimer: ReturnType<typeof setInterval> | undefined;
   private schedulerTimer: ReturnType<typeof setInterval> | undefined;
-  private runningTasks = new Map<string, Promise<void>>();
+  private readonly runningTasks = new Map<string, Promise<void>>();
   private _processedCount = 0;
 
   constructor(
@@ -55,20 +55,24 @@ export class Orchestrator {
 
   start(): void {
     logger.info('Orchestrator started');
-    this.pollTimer = setInterval(
-      async () => this.processMessages(),
-      POLL_INTERVAL_MS,
-    );
-    this.schedulerTimer = setInterval(
-      async () => this.checkScheduledTasks(),
-      SCHEDULER_INTERVAL_MS,
-    );
+    this.pollTimer = setInterval(() => {
+      this.processMessages().catch((error: unknown) => {
+        logger.error(`Message processing error: ${error}`);
+      });
+    }, POLL_INTERVAL_MS);
+    this.schedulerTimer = setInterval(() => {
+      this.checkScheduledTasks().catch((error: unknown) => {
+        logger.error(`Scheduled task check error: ${error}`);
+      });
+    }, SCHEDULER_INTERVAL_MS);
 
     // Ensure default scheduled tasks exist
     this.ensureDefaultScheduledTasks();
 
     // Run immediately on start
-    this.processMessages();
+    this.processMessages().catch((error: unknown) => {
+      logger.error(`Initial message processing error: ${error}`);
+    });
   }
 
   stop(): void {

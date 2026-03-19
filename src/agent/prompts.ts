@@ -20,14 +20,14 @@ export function buildTaskSystemPrompt(options: {
   taskId: string;
   messageContext?: string;
 }): string {
-  const parts: string[] = [];
-
-  parts.push(`You are processing a task based on user messages from various channels.
+  const parts: string[] = [
+    `You are processing a task based on user messages from various channels.
 Your workspace is at: ${options.workspacePath}
 Connected repositories: ${options.repos.join(', ') || 'none'}
 
 Current task: ${options.taskTitle}
-Task ID: ${options.taskId}`);
+Task ID: ${options.taskId}`,
+  ];
 
   if (options.messageContext) {
     parts.push(`\nUser messages for this task:\n${options.messageContext}`);

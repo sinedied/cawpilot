@@ -1,3 +1,4 @@
+import process from 'node:process';
 import { randomBytes } from 'node:crypto';
 import { execSync, spawnSync } from 'node:child_process';
 import {

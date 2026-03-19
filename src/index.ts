@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import process from 'node:process';
 import { resolve } from 'node:path';
 import { Command } from 'commander';
 import { runSetup } from './cli/setup.js';

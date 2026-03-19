@@ -14,7 +14,7 @@ import type {
 export class TelegramChannel implements Channel {
   readonly name = 'telegram';
   private bot: Bot | undefined;
-  private allowList: Set<string>;
+  private readonly allowList: Set<string>;
   private commandHandler: CommandHandler | undefined;
   private attachmentsDir: string | undefined;
 
@@ -50,17 +50,17 @@ export class TelegramChannel implements Channel {
     this.bot = new Bot(this.token);
 
     // Handle text messages
-    this.bot.on('message:text', (ctx) => {
+    this.bot.on('message:text', async (ctx) => {
       const chatId = ctx.chat.id.toString();
       const text = ctx.message.text.trim();
 
-      if (this.handleCommand(text, chatId)) return;
+      if (await this.handleCommand(text, chatId)) return;
       if (!this.isLinked(chatId)) {
         logger.debug(`Dropping message from unlinked Telegram chat ${chatId}`);
         return;
       }
 
-      onMessage({ channel: 'telegram', sender: chatId, content: text });
+      await onMessage({ channel: 'telegram', sender: chatId, content: text });
     });
 
     // Handle voice messages
@@ -76,7 +76,7 @@ export class TelegramChannel implements Channel {
           'audio/ogg',
           'audio',
         );
-        onMessage({
+        await onMessage({
           channel: 'telegram',
           sender: chatId,
           content: ctx.message.caption ?? '[Voice message]',
@@ -103,7 +103,7 @@ export class TelegramChannel implements Channel {
           `image/${ext === 'jpg' ? 'jpeg' : ext}`,
           'image',
         );
-        onMessage({
+        await onMessage({
           channel: 'telegram',
           sender: chatId,
           content: ctx.message.caption ?? '[Image]',
@@ -134,7 +134,7 @@ export class TelegramChannel implements Channel {
           mimeType,
           attachType,
         );
-        onMessage({
+        await onMessage({
           channel: 'telegram',
           sender: chatId,
           content: ctx.message.caption ?? `[${doc.file_name ?? 'Document'}]`,
@@ -149,7 +149,9 @@ export class TelegramChannel implements Channel {
       logger.error(`Telegram bot error: ${error.message}`);
     });
 
-    this.bot.start();
+    this.bot.start().catch((error: unknown) => {
+      logger.error(`Telegram bot failed to start: ${error}`);
+    });
     logger.info('Telegram channel started');
   }
 
@@ -178,7 +180,7 @@ export class TelegramChannel implements Channel {
     }
   }
 
-  private handleCommand(text: string, chatId: string): boolean {
+  private async handleCommand(text: string, chatId: string): Promise<boolean> {
     if (!text.startsWith('/')) return false;
 
     const parts = text.slice(1).split(/\s+/v);
@@ -186,7 +188,7 @@ export class TelegramChannel implements Channel {
     const args = parts.slice(1);
 
     if (command === 'pair') {
-      this.commandHandler?.(command, 'telegram', chatId, args);
+      await this.commandHandler?.(command, 'telegram', chatId, args);
       return true;
     }
 
@@ -197,7 +199,7 @@ export class TelegramChannel implements Channel {
       return true;
     }
 
-    this.commandHandler?.(command, 'telegram', chatId, args);
+    await this.commandHandler?.(command, 'telegram', chatId, args);
     return true;
   }
 

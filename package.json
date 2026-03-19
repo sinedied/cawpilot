@@ -60,8 +60,6 @@
       ".agents/**",
       "workspace/**",
       "dist/**",
-      "skills/**",
-      "templates/**",
       "tests/**"
     ],
     "rules": {
@@ -71,27 +69,16 @@
       "@typescript-eslint/no-unsafe-type-assertion": "off",
       "@typescript-eslint/naming-convention": "off",
       "@typescript-eslint/restrict-template-expressions": "off",
-      "@typescript-eslint/no-floating-promises": "off",
-      "@typescript-eslint/strict-void-return": "off",
       "@typescript-eslint/class-literal-property-style": "off",
-      "@typescript-eslint/consistent-type-definitions": "off",
       "@typescript-eslint/no-restricted-types": "off",
-      "@typescript-eslint/prefer-readonly": "off",
       "@typescript-eslint/member-ordering": "off",
-      "n/prefer-global/process": "off",
-      "n/prefer-global/buffer": "off",
       "max-params": "off",
       "no-await-in-loop": "off",
       "unicorn/no-array-callback-reference": "off",
       "unicorn/prevent-abbreviations": "off",
       "unicorn/no-process-exit": "off",
       "@stylistic/curly-newline": "off",
-      "unicorn/no-immediate-mutation": "off",
-      "unicorn/no-array-sort": "off",
-      "unicorn/no-array-reverse": "off",
-      "@typescript-eslint/no-empty-function": "off",
-      "@typescript-eslint/switch-exhaustiveness-check": "off",
-      "@typescript-eslint/use-unknown-in-catch-callback-variable": "off"
+      "@typescript-eslint/no-empty-function": "off"
     }
   },
   "prettier": {

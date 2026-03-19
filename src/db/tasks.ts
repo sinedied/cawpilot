@@ -8,7 +8,7 @@ export type TaskStatus =
   | 'failed'
   | 'need-info';
 
-export interface Task {
+export type Task = {
   id: string;
   status: TaskStatus;
   title: string;
@@ -16,9 +16,9 @@ export interface Task {
   sessionId: string | null;
   createdAt: string;
   updatedAt: string;
-}
+};
 
-interface TaskRow {
+type TaskRow = {
   id: string;
   status: string;
   title: string;
@@ -26,7 +26,7 @@ interface TaskRow {
   session_id: string | null;
   created_at: string;
   updated_at: string;
-}
+};
 
 function rowToTask(row: TaskRow): Task {
   return {

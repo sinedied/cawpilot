@@ -1,3 +1,5 @@
+import process from 'node:process';
+import { Buffer } from 'node:buffer';
 import type { Server } from 'node:http';
 import { timingSafeEqual, randomUUID } from 'node:crypto';
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -52,32 +54,36 @@ export class HttpChannel implements Channel {
       next();
     };
 
-    app.post('/api/messages', requireAuth, (req: Request, res: Response) => {
-      const { sender, content, attachments } = req.body as {
-        sender?: string;
-        content?: string;
-        attachments?: HttpAttachment[];
-      };
+    app.post(
+      '/api/messages',
+      requireAuth,
+      async (req: Request, res: Response) => {
+        const { sender, content, attachments } = req.body as {
+          sender?: string;
+          content?: string;
+          attachments?: HttpAttachment[];
+        };
 
-      if (!content || !sender) {
-        res.status(400).json({ error: 'sender and content are required' });
-        return;
-      }
+        if (!content || !sender) {
+          res.status(400).json({ error: 'sender and content are required' });
+          return;
+        }
 
-      let savedAttachments: Attachment[] | undefined;
-      if (attachments?.length && this.attachmentsDir) {
-        savedAttachments = attachments.map((a) => this.saveAttachment(a));
-      }
+        let savedAttachments: Attachment[] | undefined;
+        if (attachments?.length && this.attachmentsDir) {
+          savedAttachments = attachments.map((a) => this.saveAttachment(a));
+        }
 
-      this.onMessage?.({
-        channel: 'http',
-        sender,
-        content,
-        attachments: savedAttachments,
-      });
+        await this.onMessage?.({
+          channel: 'http',
+          sender,
+          content,
+          attachments: savedAttachments,
+        });
 
-      res.json({ status: 'received' });
-    });
+        res.json({ status: 'received' });
+      },
+    );
 
     app.get('/api/health', (_req: Request, res: Response) => {
       res.json({ status: 'ok', uptime: process.uptime() });

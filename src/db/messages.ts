@@ -4,7 +4,7 @@ import type { Attachment } from '../channels/types.js';
 
 export type MessageRole = 'user' | 'assistant';
 
-export interface Message {
+export type Message = {
   id: string;
   channel: string;
   sender: string;
@@ -14,9 +14,9 @@ export interface Message {
   status: 'unprocessed' | 'processing' | 'processed';
   taskId: string | null;
   createdAt: string;
-}
+};
 
-interface MessageRow {
+type MessageRow = {
   id: string;
   channel: string;
   sender: string;
@@ -26,7 +26,7 @@ interface MessageRow {
   status: string;
   task_id: string | null;
   created_at: string;
-}
+};
 
 function rowToMessage(row: MessageRow): Message {
   return {
@@ -109,7 +109,7 @@ export function getRecentHistory(db: Database.Database, limit = 10): Message[] {
   `,
     )
     .all(limit) as MessageRow[];
-  return rows.map(rowToMessage).reverse();
+  return rows.map(rowToMessage).toReversed();
 }
 
 export function getUnprocessedMessages(db: Database.Database): Message[] {

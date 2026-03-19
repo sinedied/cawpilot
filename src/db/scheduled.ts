@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
 
-export interface ScheduledTask {
+export type ScheduledTask = {
   id: string;
   name: string;
   schedule: string;
@@ -10,9 +10,9 @@ export interface ScheduledTask {
   lastRun: string | null;
   nextRun: string | null;
   createdAt: string;
-}
+};
 
-interface ScheduledTaskRow {
+type ScheduledTaskRow = {
   id: string;
   name: string;
   schedule: string;
@@ -21,7 +21,7 @@ interface ScheduledTaskRow {
   last_run: string | null;
   next_run: string | null;
   created_at: string;
-}
+};
 
 function rowToScheduledTask(row: ScheduledTaskRow): ScheduledTask {
   return {
