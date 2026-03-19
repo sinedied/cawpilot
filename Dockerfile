@@ -3,6 +3,7 @@ FROM node:24 AS build
 
 WORKDIR /app
 COPY package.json package-lock.json* ./
+COPY scripts/ ./scripts/
 RUN npm ci --cache /tmp/npm-cache && rm -rf /tmp/npm-cache
 
 COPY tsconfig.json ./
@@ -30,8 +31,8 @@ ENV PATH="/root/.local/bin:$PATH"
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
+COPY scripts/ ./scripts/
 RUN npm ci --production --cache /tmp/npm-cache && rm -rf /tmp/npm-cache
-
 COPY --from=build /app/dist/ ./dist/
 COPY skills/ ./skills/
 COPY templates/ ./templates/
