@@ -14,7 +14,7 @@ import {
   type CawpilotConfig,
   type ChannelConfig,
 } from '../workspace/config.js';
-import { ensureWorkspace, listUserRepos, getGitHubUser } from '../workspace/manager.js';
+import { ensureWorkspace, getGitHubUser } from '../workspace/manager.js';
 import { startRuntime, stopRuntime, listAvailableModels } from '../agent/runtime.js';
 import { logger } from '../utils/logger.js';
 
@@ -27,13 +27,12 @@ export async function runSetup(workspacePath: string): Promise<void> {
 
   // Step 1: Channels
   console.log(chalk.bold('Step 1: Channels'));
-  console.log(chalk.dim('CLI channel is always available.\n'));
 
   const channels = await setupChannels(config.channels);
   config.channels = channels;
 
-  // Step 2: GitHub auth & repos
-  console.log(chalk.bold('\nStep 2: GitHub Repositories'));
+  // Step 2: GitHub auth
+  console.log(chalk.bold('\nStep 2: GitHub Authentication'));
   const spinner = ora('Checking GitHub authentication...').start();
   const user = getGitHubUser();
 
@@ -42,9 +41,6 @@ export async function runSetup(workspacePath: string): Promise<void> {
     return;
   }
   spinner.succeed(`Authenticated as ${chalk.green(user)}`);
-
-  const repos = await setupRepos();
-  config.repos = repos;
 
   // Step 3: Persistence
   console.log(chalk.bold('\nStep 3: Configuration Persistence'));
@@ -84,15 +80,28 @@ export async function runSetup(workspacePath: string): Promise<void> {
 }
 
 async function setupChannels(existing: ChannelConfig[]): Promise<ChannelConfig[]> {
-  const channels: ChannelConfig[] = [];
+  const existingTg = existing.find((c) => c.type === 'telegram');
+  const existingHttp = existing.find((c) => c.type === 'http');
 
-  const enableTelegram = await confirm({
-    message: 'Enable Telegram channel?',
-    default: existing.some((c) => c.type === 'telegram' && c.enabled),
+  const selected = await checkbox({
+    message: 'Select channels to enable:',
+    choices: [
+      {
+        name: 'Telegram',
+        value: 'telegram' as const,
+        checked: existingTg?.enabled ?? true,
+      },
+      {
+        name: 'HTTP API',
+        value: 'http' as const,
+        checked: existingHttp?.enabled ?? true,
+      },
+    ],
   });
 
-  if (enableTelegram) {
-    const existingTg = existing.find((c) => c.type === 'telegram');
+  const channels: ChannelConfig[] = [];
+
+  if (selected.includes('telegram')) {
     const token = await input({
       message: 'Telegram Bot Token (from BotFather):',
       default: existingTg?.telegramToken ?? '',
@@ -103,16 +112,10 @@ async function setupChannels(existing: ChannelConfig[]): Promise<ChannelConfig[]
       telegramToken: token,
       allowList: existingTg?.allowList ?? [],
     });
-    console.log(chalk.dim('  Use /pair in the CLI after starting to link your Telegram account.'));
+    console.log(chalk.dim('  Use /pair after starting to link your Telegram account.'));
   }
 
-  const enableHttp = await confirm({
-    message: 'Enable HTTP API channel?',
-    default: existing.some((c) => c.type === 'http' && c.enabled),
-  });
-
-  if (enableHttp) {
-    const existingHttp = existing.find((c) => c.type === 'http');
+  if (selected.includes('http')) {
     const port = await input({
       message: 'HTTP API port:',
       default: String(existingHttp?.httpPort ?? 3000),
@@ -125,28 +128,10 @@ async function setupChannels(existing: ChannelConfig[]): Promise<ChannelConfig[]
       httpApiKey: apiKey,
     });
     console.log(chalk.dim(`  HTTP API Key: ${chalk.bold(apiKey)}`));
-    console.log(chalk.dim('  Use this key in the X-Api-Key header for API requests.'));
+    console.log(chalk.dim('  Use this key in the X-Api-Key header for requests.'));
   }
 
   return channels;
-}
-
-async function setupRepos(): Promise<string[]> {
-  const spinner = ora('Fetching your repositories...').start();
-  const allRepos = listUserRepos();
-  spinner.stop();
-
-  if (allRepos.length === 0) {
-    console.log(chalk.yellow('No repositories found. You can add them later.'));
-    return [];
-  }
-
-  const selected = await checkbox({
-    message: 'Select repositories to connect:',
-    choices: allRepos.map((r) => ({ name: r, value: r })),
-  });
-
-  return selected;
 }
 
 async function setupSkills(workspacePath: string): Promise<string[]> {
