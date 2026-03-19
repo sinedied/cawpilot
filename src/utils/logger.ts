@@ -16,8 +16,8 @@ const levelColors: Record<LogLevel, (s: string) => string> = {
   error: chalk.red,
 };
 
-let currentLevel: LogLevel = (process.env.LOG_LEVEL as LogLevel) ?? 'info';
-let enabled = true;
+let currentLevel: LogLevel = 'debug';
+let enabled = false;
 
 function shouldLog(level: LogLevel): boolean {
   return enabled && levels[level] >= levels[currentLevel];

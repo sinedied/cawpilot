@@ -28,12 +28,6 @@ export async function runStart(workspacePath: string, options: StartOptions = { 
   const config = loadConfig(workspacePath);
   config.workspacePath = workspacePath;
 
-  if (!options.debug) {
-    logger.disable();
-  } else {
-    logger.setLevel('debug');
-  }
-
   ensureWorkspace(workspacePath);
   const db = getDb(getDbPath(workspacePath));
 

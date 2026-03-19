@@ -125,7 +125,7 @@ npx tsx src/index.ts doctor
 - **Interfaces over classes** where possible; use functions and closures
 - **Error handling**: Validate at system boundaries (channel input, config loading, external APIs). Trust internal code.
 - **No over-engineering**: Don't add abstractions, helpers, or error handling for scenarios that can't occur
-- **Logging**: Use the shared logger from `utils/logger.ts`. Logger is disabled in dashboard mode; use `--debug` flag to enable.
+- **Logging**: Use the shared logger from `utils/logger.ts`. Logger is **disabled by default** and only enabled when the `--debug` global flag is passed to any command. Never call `console.log` for debug output — always use `logger`.
 - **Config types**: All configuration shapes defined in `workspace/config.ts`
 - **Database**: All SQL in the `db/` module; other modules use the typed functions exported from there
 - **Channel interface**: All channels implement the `Channel` interface from `channels/types.ts`. Channels support cross-channel messaging via the `send_message` tool.

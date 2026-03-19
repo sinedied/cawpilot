@@ -19,6 +19,7 @@ import { startRuntime, stopRuntime, listAvailableModels } from '../agent/runtime
 import { logger } from '../utils/logger.js';
 
 export async function runSetup(workspacePath: string): Promise<void> {
+
   console.log(chalk.bold.cyan('\n🐦 Welcome to CawPilot Setup\n'));
   console.log(chalk.dim('This wizard will configure your CawPilot instance.\n'));
 

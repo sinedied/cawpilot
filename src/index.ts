@@ -6,13 +6,21 @@ import { runSetup } from './cli/setup.js';
 import { runStart } from './cli/start.js';
 import { runDoctor } from './cli/doctor.js';
 import { runSend } from './cli/send.js';
+import { logger } from './utils/logger.js';
 
 const program = new Command();
 
 program
   .name('cawpilot')
   .description('Autonomous developer assistant powered by GitHub Copilot SDK')
-  .version('0.1.0');
+  .version('0.1.0')
+  .option('--debug', 'Enable verbose logging output')
+  .hook('preAction', (thisCommand) => {
+    const opts = thisCommand.optsWithGlobals();
+    if (opts.debug) {
+      logger.enable();
+    }
+  });
 
 function getWorkspace(): string {
   return resolve(process.env.CAWPILOT_WORKSPACE ?? process.cwd());
@@ -28,9 +36,9 @@ program
 program
   .command('start')
   .description('Start the CawPilot bot server')
-  .option('--debug', 'Enable verbose logging output')
-  .action(async (options: { debug?: boolean }) => {
-    await runStart(getWorkspace(), { debug: options.debug ?? false });
+  .action(async () => {
+    const debug = program.opts().debug ?? false;
+    await runStart(getWorkspace(), { debug });
   });
 
 program
