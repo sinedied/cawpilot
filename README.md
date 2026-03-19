@@ -17,14 +17,14 @@
 
 CawPilot is an always-on agent assistant that lives in your terminal and talks to you through Telegram, HTTP webhooks, or the CLI. It manages code, branches, todo lists, and everyday developer workflows through natural conversation — backed by GitHub Copilot's agentic runtime.
 
-CawPilot operates in a dedicated sandboxed workspace, cloning your connected repositories and working exclusively in safe `caw-*` branches. It never touches your main branches directly.
+CawPilot operates in a dedicated sandboxed workspace, cloning your connected repositories and working exclusively in safe `cp-*` branches. It never touches your main branches directly.
 
 ## Features
 
 - 🤖 **Copilot-powered agent runtime** — leverages the full Copilot SDK with planning, tool invocation, and code editing
 - 💬 **Multi-channel** — Telegram, HTTP REST API, and CLI with a unified interface
 - 🔀 **Parallel task processing** — groups related messages into tasks, processes up to 5 concurrently
-- 🔒 **Branch safety** — only works in `caw-*` branches to protect your main codebase
+- 🔒 **Branch safety** — only works in `cp-*` branches to protect your main codebase
 - 🧩 **Modular skills** — extend capabilities with pluggable skills (following the Copilot SDK skill format)
 - ⏰ **Scheduled tasks** — configure recurring tasks like daily standups, weekly code cleanups, and more
 - 📋 **Todo tracking** — maintains a `TODO.md` with task status visible in your workspace
@@ -95,7 +95,7 @@ Once started, send messages through any connected channel:
 
 ```
 You: Create a new utility function to format dates in the api-server repo
-CawPilot: I'll work on that. Creating branch caw-add-date-formatter...
+CawPilot: I'll work on that. Creating branch cp-add-date-formatter...
          Done! I've created a PR with the changes: https://github.com/...
 ```
 

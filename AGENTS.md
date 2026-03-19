@@ -34,7 +34,7 @@ src/
 │   └── http.ts           # Express 5 API with API key auth (timing-safe comparison)
 ├── workspace/            # Repo management, config, persistence
 │   ├── config.ts         # Config types (ChannelConfig, CawpilotConfig), load/save
-│   ├── manager.ts        # Repo clone/pull, caw-* branch safety, GitHub CLI helpers
+│   ├── manager.ts        # Repo clone/pull, cp-* branch safety, GitHub CLI helpers
 │   └── persistence.ts    # Optional GitHub repo sync for config backup
 ├── db/                   # SQLite layer (better-sqlite3, WAL mode)
 │   ├── client.ts         # DB singleton, schema init
@@ -71,7 +71,7 @@ tests/                    # Vitest tests mirroring src/ structure
 - **TypeScript strict mode** — `strict: true` in tsconfig.json
 - **Node.js 24+** required
 - **Copilot CLI must be installed** — the SDK communicates with it via JSON-RPC. Setup verifies this.
-- **Branch safety** — all git write operations must use `caw-*` prefix branches only. The workspace manager enforces this before any write operation.
+- **Branch safety** — all git write operations must use `cp-*` prefix branches only. The workspace manager enforces this before any write operation.
 - **Sandboxed workspace** — repos are cloned into the workspace directory. Never modify files outside the workspace.
 - **`index.ts` is reserved for barrel exports** — no logic in index.ts files (except the root entry point)
 - **Channel security** — Telegram messages from unlinked senders are silently dropped. HTTP requires API key. CLI is always trusted.
@@ -134,7 +134,7 @@ npx tsx src/index.ts doctor
 ## Security Considerations
 
 - **No secrets in code** — all credentials via environment variables or config file (gitignored)
-- **Branch safety enforcement** — workspace manager rejects any git write operation not targeting a `caw-*` branch
+- **Branch safety enforcement** — workspace manager rejects any git write operation not targeting a `cp-*` branch
 - **Pairing system** — `/pair` generates 8-char codes (XXXX-XXXX) valid for 5 minutes. Only linked channels or CLI can generate codes. `/pair <code>` from an unlinked channel completes linking. Allow lists persisted to config.
 - **HTTP API key** — generated during setup, required in `X-Api-Key` header, validated with timing-safe comparison
 - **Unlinked message dropping** — Telegram messages from senders not in the allow list are silently dropped (never stored)
@@ -144,7 +144,7 @@ npx tsx src/index.ts doctor
 
 ## Pull Request Guidelines
 
-- PRs created by CawPilot target `caw-*` branches
+- PRs created by CawPilot target `cp-*` branches
 - Title format: `[CawPilot] <description>`
 - Include a summary of changes and the originating user message
 - All code changes should pass `npm run build` and `npm test`

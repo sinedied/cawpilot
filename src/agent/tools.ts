@@ -33,7 +33,7 @@ const updateTodoSchema = z.object({
 
 const createBranchSchema = z.object({
   repoDir: z.string().describe('Path to the repository directory'),
-  branchName: z.string().describe('Branch name (caw- prefix will be added if missing)'),
+  branchName: z.string().describe('Branch name (cp- prefix will be added if missing)'),
 });
 
 const createPrSchema = z.object({
@@ -105,12 +105,12 @@ export function buildTools(ctx: ToolContext) {
     },
 
     create_branch: {
-      description: 'Create a new branch in a repository (caw- prefix enforced)',
+      description: 'Create a new branch in a repository (cp- prefix enforced)',
       parameters: {
         type: 'object' as const,
         properties: {
           repoDir: { type: 'string', description: 'Path to the repository directory' },
-          branchName: { type: 'string', description: 'Branch name (caw- prefix will be added)' },
+          branchName: { type: 'string', description: 'Branch name (cp- prefix will be added)' },
         },
         required: ['repoDir', 'branchName'],
       },
