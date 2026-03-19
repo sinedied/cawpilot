@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 import chalk from 'chalk';
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, readFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CawpilotConfig } from '../workspace/config.js';
 import { loadSoul } from '../workspace/config.js';
@@ -10,6 +10,7 @@ import { createTask, getActiveTasks, getAllTasks, type Task } from '../db/tasks.
 import { getDueScheduledTasks, updateScheduledTaskRun } from '../db/scheduled.js';
 import { createTaskSession } from './runtime.js';
 import { TRIAGE_SYSTEM_PROMPT, buildTaskSystemPrompt } from './prompts.js';
+import { archiveCompletedTasks } from './cleanup.js';
 import { runTask } from './task-runner.js';
 import { setNotification } from '../cli/dashboard.js';
 import { logger } from '../utils/logger.js';
@@ -20,6 +21,7 @@ const SCHEDULER_INTERVAL_MS = 60_000;
 export class Orchestrator {
   private pollTimer: ReturnType<typeof setInterval> | undefined;
   private schedulerTimer: ReturnType<typeof setInterval> | undefined;
+  private cleanupTimer: ReturnType<typeof setInterval> | undefined;
   private runningTasks = new Map<string, Promise<void>>();
   private _processedCount = 0;
 
@@ -42,6 +44,9 @@ export class Orchestrator {
     this.pollTimer = setInterval(() => this.processMessages(), POLL_INTERVAL_MS);
     this.schedulerTimer = setInterval(() => this.checkScheduledTasks(), SCHEDULER_INTERVAL_MS);
 
+    // Auto-cleanup: check once per hour, archive if interval has passed
+    this.cleanupTimer = setInterval(() => this.autoCleanup(), 60 * 60_000);
+
     // Run immediately on start
     this.processMessages();
   }
@@ -49,8 +54,10 @@ export class Orchestrator {
   stop(): void {
     if (this.pollTimer) clearInterval(this.pollTimer);
     if (this.schedulerTimer) clearInterval(this.schedulerTimer);
+    if (this.cleanupTimer) clearInterval(this.cleanupTimer);
     this.pollTimer = undefined;
     this.schedulerTimer = undefined;
+    this.cleanupTimer = undefined;
     logger.info('Orchestrator stopped');
   }
 
@@ -235,5 +242,37 @@ export class Orchestrator {
 
     const todoPath = join(this.config.workspacePath, 'TODO.md');
     writeFileSync(todoPath, lines.join('\n'), 'utf-8');
+  }
+
+  archiveCompletedTasks(): void {
+    const count = archiveCompletedTasks(this.db, this.config.workspacePath);
+    if (count > 0) {
+      this.updateTodoFile();
+    }
+  }
+
+  private autoCleanup(): void {
+    const archiveDir = join(this.config.workspacePath, '.cawpilot', 'archive');
+
+    // Find the most recent archive file to determine last cleanup
+    let lastCleanup: Date | null = null;
+    if (existsSync(archiveDir)) {
+      const files = readdirSync(archiveDir).filter((f) => f.startsWith('TODO-') && f.endsWith('.md'));
+      for (const f of files) {
+        const dateStr = f.replace('TODO-', '').replace('.md', '');
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime()) && (!lastCleanup || d > lastCleanup)) {
+          lastCleanup = d;
+        }
+      }
+    }
+
+    const daysSince = lastCleanup
+      ? (Date.now() - lastCleanup.getTime()) / (1000 * 60 * 60 * 24)
+      : Infinity;
+
+    if (daysSince >= this.config.cleanupIntervalDays) {
+      this.archiveCompletedTasks();
+    }
   }
 }

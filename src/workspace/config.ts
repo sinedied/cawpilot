@@ -23,6 +23,7 @@ export interface CawpilotConfig {
   skills: string[];
   maxConcurrency: number;
   contextMessagesCount: number;
+  cleanupIntervalDays: number;
   persistence: {
     enabled: boolean;
     repo: string;
@@ -38,6 +39,7 @@ const DEFAULT_CONFIG: CawpilotConfig = {
   skills: [],
   maxConcurrency: 3,
   contextMessagesCount: 10,
+  cleanupIntervalDays: 7,
   persistence: {
     enabled: false,
     repo: '',

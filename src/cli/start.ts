@@ -152,6 +152,14 @@ export async function runStart(workspacePath: string, options: StartOptions = { 
         await runBootstrap(config, db, channels, channelName, sender);
         break;
       }
+      case 'clean': {
+        orchestrator.archiveCompletedTasks();
+        const channel = channels.get(channelName);
+        if (channel) {
+          await channel.send(sender, '🧹 Completed and stale tasks archived.');
+        }
+        break;
+      }
       default: {
         const channel = channels.get(channelName);
         if (channel) {
