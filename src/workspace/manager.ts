@@ -3,7 +3,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { logger } from '../utils/logger.js';
 
-const BRANCH_PREFIX = 'caw-';
+const BRANCH_PREFIX = 'cp-';
 
 export function getReposPath(workspacePath: string): string {
   return join(workspacePath, 'repos');

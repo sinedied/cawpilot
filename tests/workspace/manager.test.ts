@@ -33,15 +33,15 @@ describe('workspace/manager', () => {
   });
 
   describe('isSafeBranch', () => {
-    it('returns true for caw- prefixed branches', () => {
-      expect(isSafeBranch('caw-feature')).toBe(true);
-      expect(isSafeBranch('caw-fix-bug')).toBe(true);
-      expect(isSafeBranch('caw-')).toBe(true);
+    it('returns true for cp- prefixed branches', () => {
+      expect(isSafeBranch('cp-feature')).toBe(true);
+      expect(isSafeBranch('cp-fix-bug')).toBe(true);
+      expect(isSafeBranch('cp-')).toBe(true);
     });
 
     it('returns false for non-prefixed branches', () => {
       expect(isSafeBranch('main')).toBe(false);
-      expect(isSafeBranch('feature-caw')).toBe(false);
+      expect(isSafeBranch('feature-cp')).toBe(false);
       expect(isSafeBranch('')).toBe(false);
     });
   });
