@@ -160,6 +160,28 @@ export async function runStart(workspacePath: string, options: StartOptions = { 
         }
         break;
       }
+      case 'schedule': {
+        const { getAllScheduledTasks } = await import('../db/scheduled.js');
+        const scheduled = getAllScheduledTasks(db);
+        const channel = channels.get(channelName);
+        if (!channel) break;
+
+        if (scheduled.length === 0) {
+          await channel.send(sender, 'No scheduled tasks configured.');
+          break;
+        }
+
+        const lines = ['📅 **Scheduled Tasks**\n'];
+        for (const t of scheduled) {
+          const status = t.enabled ? '✅ enabled' : '⏸️ disabled';
+          const lastRun = t.lastRun ? new Date(t.lastRun).toLocaleString() : 'never';
+          const nextRun = t.nextRun ? new Date(t.nextRun).toLocaleString() : 'pending';
+          lines.push(`• **${t.name}** — ${status}`);
+          lines.push(`  Schedule: every ${t.schedule} min | Last: ${lastRun} | Next: ${nextRun}`);
+        }
+        await channel.send(sender, lines.join('\n'));
+        break;
+      }
       default: {
         const channel = channels.get(channelName);
         if (channel) {
