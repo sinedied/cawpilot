@@ -1,28 +1,42 @@
 import express, { type Request, type Response } from 'express';
 import type { Server } from 'node:http';
-import { timingSafeEqual } from 'node:crypto';
+import { timingSafeEqual, randomUUID } from 'node:crypto';
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { logger } from '../utils/logger.js';
-import type { Channel, MessageHandler } from './types.js';
+import type { Attachment, Channel, MessageHandler } from './types.js';
+
+interface HttpAttachment {
+  type?: 'image' | 'audio' | 'file';
+  mimeType: string;
+  data: string; // base64
+  fileName?: string;
+}
 
 export class HttpChannel implements Channel {
   readonly name = 'http';
   private server: Server | undefined;
   private onMessage: MessageHandler | undefined;
+  private attachmentsDir: string | undefined;
 
   constructor(
     private readonly port: number = 3000,
     private readonly apiKey?: string,
   ) {}
 
+  setAttachmentsDir(dir: string): void {
+    this.attachmentsDir = dir;
+    mkdirSync(dir, { recursive: true });
+  }
+
   async start(onMessage: MessageHandler): Promise<void> {
     this.onMessage = onMessage;
     const app = express();
-    app.use(express.json());
+    app.use(express.json({ limit: '50mb' }));
 
     // API key auth middleware for message endpoint
     const requireAuth = (req: Request, res: Response, next: () => void) => {
       if (!this.apiKey) {
-        // No key configured — reject all requests
         res.status(403).json({ error: 'HTTP channel not configured with an API key' });
         return;
       }
@@ -39,7 +53,7 @@ export class HttpChannel implements Channel {
       const { sender, content, attachments } = req.body as {
         sender?: string;
         content?: string;
-        attachments?: string[];
+        attachments?: HttpAttachment[];
       };
 
       if (!content || !sender) {
@@ -47,11 +61,16 @@ export class HttpChannel implements Channel {
         return;
       }
 
+      let savedAttachments: Attachment[] | undefined;
+      if (attachments?.length && this.attachmentsDir) {
+        savedAttachments = attachments.map((a) => this.saveAttachment(a));
+      }
+
       this.onMessage?.({
         channel: 'http',
         sender,
         content,
-        attachments,
+        attachments: savedAttachments,
       });
 
       res.json({ status: 'received' });
@@ -87,6 +106,20 @@ export class HttpChannel implements Channel {
   async send(_sender: string, _content: string): Promise<void> {
     logger.debug('HTTP channel does not support push messages');
   }
+
+  private saveAttachment(input: HttpAttachment): Attachment {
+    if (!this.attachmentsDir) throw new Error('Attachments directory not configured');
+
+    const type = input.type ?? inferType(input.mimeType);
+    const ext = mimeToExt(input.mimeType);
+    const fileName = `${randomUUID()}.${ext}`;
+    const filePath = join(this.attachmentsDir, fileName);
+
+    writeFileSync(filePath, Buffer.from(input.data, 'base64'));
+    logger.debug(`Saved HTTP attachment: ${filePath} (${input.mimeType})`);
+
+    return { type, path: filePath, mimeType: input.mimeType };
+  }
 }
 
 function safeCompare(a: string, b: string): boolean {
@@ -94,4 +127,18 @@ function safeCompare(a: string, b: string): boolean {
   const bufB = Buffer.from(b);
   if (bufA.length !== bufB.length) return false;
   return timingSafeEqual(bufA, bufB);
+}
+
+function inferType(mimeType: string): Attachment['type'] {
+  if (mimeType.startsWith('image/')) return 'image';
+  if (mimeType.startsWith('audio/')) return 'audio';
+  return 'file';
+}
+
+function mimeToExt(mimeType: string): string {
+  const map: Record<string, string> = {
+    'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp',
+    'audio/ogg': 'ogg', 'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'audio/webm': 'webm',
+  };
+  return map[mimeType] ?? mimeType.split('/').pop() ?? 'bin';
 }

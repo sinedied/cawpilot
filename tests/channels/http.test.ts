@@ -1,5 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
+import { mkdtempSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { HttpChannel } from '../../src/channels/http.js';
+import type { ChannelMessage } from '../../src/channels/types.js';
 
 describe('channels/http', () => {
   it('starts and stops without error', async () => {
@@ -111,6 +115,42 @@ describe('channels/http', () => {
     });
 
     expect(res.status).toBe(400);
+
+    await http.stop();
+  });
+
+  it('saves base64 attachments to disk', async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'cawpilot-http-'));
+    let received: ChannelMessage | null = null;
+    const http = new HttpChannel(0, 'test-key');
+    http.setAttachmentsDir(tmpDir);
+    await http.start((msg) => { received = msg; });
+
+    const server = (http as unknown as { server: { address: () => { port: number } } }).server;
+    const port = server.address().port;
+
+    const imageData = Buffer.from('fake-png-data').toString('base64');
+    const res = await fetch(`http://localhost:${port}/api/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Api-Key': 'test-key',
+      },
+      body: JSON.stringify({
+        sender: 'test',
+        content: 'look at this',
+        attachments: [{ mimeType: 'image/png', data: imageData }],
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(received).not.toBeNull();
+    expect(received!.attachments).toHaveLength(1);
+
+    const att = received!.attachments![0];
+    expect(att.type).toBe('image');
+    expect(att.mimeType).toBe('image/png');
+    expect(existsSync(att.path)).toBe(true);
 
     await http.stop();
   });

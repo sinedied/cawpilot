@@ -1,8 +1,14 @@
+export interface Attachment {
+  type: 'image' | 'audio' | 'file';
+  path: string;
+  mimeType: string;
+}
+
 export interface ChannelMessage {
   channel: string;
   sender: string;
   content: string;
-  attachments?: string[];
+  attachments?: Attachment[];
 }
 
 export type MessageHandler = (message: ChannelMessage) => void | Promise<void>;

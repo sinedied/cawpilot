@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
+import type { Attachment } from '../channels/types.js';
 
 export type MessageRole = 'user' | 'assistant';
 
@@ -9,7 +10,7 @@ export interface Message {
   sender: string;
   role: MessageRole;
   content: string;
-  attachments: string[];
+  attachments: Attachment[];
   status: 'unprocessed' | 'processing' | 'processed';
   taskId: string | null;
   createdAt: string;
@@ -34,7 +35,7 @@ function rowToMessage(row: MessageRow): Message {
     sender: row.sender,
     role: row.role as MessageRole,
     content: row.content,
-    attachments: JSON.parse(row.attachments) as string[],
+    attachments: JSON.parse(row.attachments) as Attachment[],
     status: row.status as Message['status'],
     taskId: row.task_id,
     createdAt: row.created_at,
@@ -46,7 +47,7 @@ export function createMessage(
   channel: string,
   sender: string,
   content: string,
-  attachments: string[] = [],
+  attachments: Attachment[] = [],
 ): Message {
   const id = randomUUID();
   db.prepare(`

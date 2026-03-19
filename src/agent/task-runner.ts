@@ -29,6 +29,11 @@ export async function runTask(
     .map((m) => `[${m.channel}/${m.sender}] ${m.content}`)
     .join('\n');
 
+  // Collect file attachments from messages (images, voice, etc.)
+  const messageAttachments = messages.flatMap((m) =>
+    m.attachments.map((a) => ({ type: 'file' as const, path: a.path })),
+  );
+
   const contextFiles = getContextFiles(config.workspacePath);
   const systemPrompt = buildTaskSystemPrompt({
     workspacePath: config.workspacePath,
@@ -56,7 +61,10 @@ export async function runTask(
 
     await session.send({
       prompt: `Process this task: ${task.title}\n\nContext:\n${messageContext}`,
-      attachments: contextFiles.map((p) => ({ type: 'file' as const, path: p })),
+      attachments: [
+        ...contextFiles.map((p) => ({ type: 'file' as const, path: p })),
+        ...messageAttachments,
+      ],
     });
 
     await session.disconnect();

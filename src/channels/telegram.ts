@@ -1,12 +1,17 @@
 import { Bot } from 'grammy';
+import { randomUUID } from 'node:crypto';
+import { createWriteStream, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { pipeline } from 'node:stream/promises';
 import { logger } from '../utils/logger.js';
-import type { Channel, MessageHandler, CommandHandler } from './types.js';
+import type { Attachment, Channel, MessageHandler, CommandHandler } from './types.js';
 
 export class TelegramChannel implements Channel {
   readonly name = 'telegram';
   private bot: Bot | undefined;
   private allowList: Set<string>;
   private commandHandler: CommandHandler | undefined;
+  private attachmentsDir: string | undefined;
 
   constructor(
     private readonly token: string,
@@ -17,6 +22,11 @@ export class TelegramChannel implements Channel {
 
   setCommandHandler(handler: CommandHandler): void {
     this.commandHandler = handler;
+  }
+
+  setAttachmentsDir(dir: string): void {
+    this.attachmentsDir = dir;
+    mkdirSync(dir, { recursive: true });
   }
 
   isLinked(chatId: string): boolean {
@@ -34,50 +44,89 @@ export class TelegramChannel implements Channel {
   async start(onMessage: MessageHandler): Promise<void> {
     this.bot = new Bot(this.token);
 
+    // Handle text messages
     this.bot.on('message:text', (ctx) => {
       const chatId = ctx.chat.id.toString();
       const text = ctx.message.text.trim();
 
-      // Handle slash commands — /pair is allowed from anyone, others require linking
-      if (text.startsWith('/')) {
-        const parts = text.slice(1).split(/\s+/);
-        const command = parts[0];
-        const args = parts.slice(1);
-
-        // /pair is special: allowed from unlinked senders
-        if (command === 'pair') {
-          this.commandHandler?.(command, 'telegram', chatId, args);
-          return;
-        }
-
-        // All other commands require linked sender
-        if (!this.isLinked(chatId)) {
-          logger.debug(`Dropping command /${command} from unlinked Telegram chat ${chatId}`);
-          return;
-        }
-
-        this.commandHandler?.(command, 'telegram', chatId, args);
-        return;
-      }
-
-      // Drop messages from unlinked senders
+      if (this.handleCommand(text, chatId)) return;
       if (!this.isLinked(chatId)) {
         logger.debug(`Dropping message from unlinked Telegram chat ${chatId}`);
         return;
       }
 
-      onMessage({
-        channel: 'telegram',
-        sender: chatId,
-        content: text,
-      });
+      onMessage({ channel: 'telegram', sender: chatId, content: text });
+    });
+
+    // Handle voice messages
+    this.bot.on('message:voice', async (ctx) => {
+      const chatId = ctx.chat.id.toString();
+      if (!this.isLinked(chatId)) return;
+
+      try {
+        const file = await ctx.getFile();
+        const attachment = await this.downloadFile(file.file_id, file.file_path ?? 'voice.oga', 'audio/ogg', 'audio');
+        onMessage({
+          channel: 'telegram',
+          sender: chatId,
+          content: ctx.message.caption ?? '[Voice message]',
+          attachments: [attachment],
+        });
+      } catch (error) {
+        logger.error(`Failed to download voice message: ${error}`);
+      }
+    });
+
+    // Handle photos
+    this.bot.on('message:photo', async (ctx) => {
+      const chatId = ctx.chat.id.toString();
+      if (!this.isLinked(chatId)) return;
+
+      try {
+        // Get the largest photo (last in array)
+        const photo = ctx.message.photo.at(-1)!;
+        const file = await ctx.getFile();
+        const ext = file.file_path?.split('.').pop() ?? 'jpg';
+        const attachment = await this.downloadFile(file.file_id, file.file_path ?? `photo.${ext}`, `image/${ext === 'jpg' ? 'jpeg' : ext}`, 'image');
+        onMessage({
+          channel: 'telegram',
+          sender: chatId,
+          content: ctx.message.caption ?? '[Image]',
+          attachments: [attachment],
+        });
+      } catch (error) {
+        logger.error(`Failed to download photo: ${error}`);
+      }
+    });
+
+    // Handle documents (files)
+    this.bot.on('message:document', async (ctx) => {
+      const chatId = ctx.chat.id.toString();
+      if (!this.isLinked(chatId)) return;
+
+      try {
+        const doc = ctx.message.document;
+        const file = await ctx.getFile();
+        const mimeType = doc.mime_type ?? 'application/octet-stream';
+        const attachType = mimeType.startsWith('image/') ? 'image' as const
+          : mimeType.startsWith('audio/') ? 'audio' as const
+          : 'file' as const;
+        const attachment = await this.downloadFile(file.file_id, file.file_path ?? doc.file_name ?? 'document', mimeType, attachType);
+        onMessage({
+          channel: 'telegram',
+          sender: chatId,
+          content: ctx.message.caption ?? `[${doc.file_name ?? 'Document'}]`,
+          attachments: [attachment],
+        });
+      } catch (error) {
+        logger.error(`Failed to download document: ${error}`);
+      }
     });
 
     this.bot.catch((err) => {
       logger.error(`Telegram bot error: ${err.message}`);
     });
 
-    // bot.start() never resolves (long-polling loop), so fire and forget
     this.bot.start();
     logger.info('Telegram channel started');
   }
@@ -94,11 +143,9 @@ export class TelegramChannel implements Channel {
       return;
     }
 
-    // Send to a specific chat, or broadcast to all linked chats
     if (sender && this.isLinked(sender)) {
       await this.bot.api.sendMessage(sender, content);
     } else {
-      // Broadcast to all linked chats
       for (const chatId of this.allowList) {
         try {
           await this.bot.api.sendMessage(chatId, content);
@@ -107,5 +154,50 @@ export class TelegramChannel implements Channel {
         }
       }
     }
+  }
+
+  private handleCommand(text: string, chatId: string): boolean {
+    if (!text.startsWith('/')) return false;
+
+    const parts = text.slice(1).split(/\s+/);
+    const command = parts[0];
+    const args = parts.slice(1);
+
+    if (command === 'pair') {
+      this.commandHandler?.(command, 'telegram', chatId, args);
+      return true;
+    }
+
+    if (!this.isLinked(chatId)) {
+      logger.debug(`Dropping command /${command} from unlinked Telegram chat ${chatId}`);
+      return true;
+    }
+
+    this.commandHandler?.(command, 'telegram', chatId, args);
+    return true;
+  }
+
+  private async downloadFile(
+    fileId: string,
+    filePath: string,
+    mimeType: string,
+    type: Attachment['type'],
+  ): Promise<Attachment> {
+    if (!this.bot) throw new Error('Bot not started');
+    if (!this.attachmentsDir) throw new Error('Attachments directory not configured');
+
+    const ext = filePath.split('.').pop() ?? 'bin';
+    const localName = `${randomUUID()}.${ext}`;
+    const localPath = join(this.attachmentsDir, localName);
+
+    const fileUrl = `https://api.telegram.org/file/bot${this.token}/${filePath}`;
+    const response = await fetch(fileUrl);
+    if (!response.ok || !response.body) {
+      throw new Error(`Failed to download file: ${response.statusText}`);
+    }
+    await pipeline(response.body, createWriteStream(localPath));
+
+    logger.debug(`Downloaded Telegram ${type}: ${localPath}`);
+    return { type, path: localPath, mimeType };
   }
 }

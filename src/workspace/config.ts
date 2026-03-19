@@ -70,6 +70,10 @@ export function getUserPath(workspacePath: string): string {
   return join(workspacePath, '.cawpilot', 'USER.md');
 }
 
+export function getAttachmentsPath(workspacePath: string): string {
+  return join(workspacePath, '.cawpilot', 'attachments');
+}
+
 /**
  * Returns paths to context files (SOUL.md, USER.md) that exist in the workspace.
  * These are attached to task sessions for personality and user context.

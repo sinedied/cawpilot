@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import { randomBytes } from 'node:crypto';
-import { loadConfig, saveConfig, getDbPath } from '../workspace/config.js';
+import { loadConfig, saveConfig, getDbPath, getAttachmentsPath } from '../workspace/config.js';
 import { getDb, closeDb } from '../db/client.js';
 import { createMessage } from '../db/messages.js';
 import { ensureWorkspace, cloneRepo } from '../workspace/manager.js';
@@ -10,7 +10,7 @@ import { CliChannel } from '../channels/cli.js';
 import { TelegramChannel } from '../channels/telegram.js';
 import { HttpChannel } from '../channels/http.js';
 import { initDashboard, renderDashboard, refreshDashboard, setNotification } from './dashboard.js';
-import type { Channel } from '../channels/types.js';
+import type { Channel, MessageHandler } from '../channels/types.js';
 import { logger } from '../utils/logger.js';
 
 interface PendingPair {
@@ -59,11 +59,13 @@ export async function runStart(workspacePath: string, options: StartOptions = { 
 
     if (chConfig.type === 'telegram' && chConfig.telegramToken) {
       const tg = new TelegramChannel(chConfig.telegramToken, chConfig.allowList ?? []);
+      tg.setAttachmentsDir(getAttachmentsPath(workspacePath));
       channels.set('telegram', tg);
     }
 
     if (chConfig.type === 'http') {
       const http = new HttpChannel(chConfig.httpPort ?? 3000, chConfig.httpApiKey);
+      http.setAttachmentsDir(getAttachmentsPath(workspacePath));
       channels.set('http', http);
     }
   }
@@ -211,7 +213,7 @@ export async function runStart(workspacePath: string, options: StartOptions = { 
   await startRuntime();
 
   // Start channels
-  const messageHandler = (msg: { channel: string; sender: string; content: string; attachments?: string[] }) => {
+  const messageHandler: MessageHandler = (msg) => {
     createMessage(db, msg.channel, msg.sender, msg.content, msg.attachments);
     logger.debug(`Message received from ${msg.channel}/${msg.sender}`);
   };
