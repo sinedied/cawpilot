@@ -5,7 +5,7 @@ description: Interact with GitHub using the GitHub CLI (gh). Use when the user a
 
 # GitHub CLI
 
-Perform GitHub operations using the `gh` CLI, which is pre-authenticated in the CawPilot environment. This skill covers repositories, issues, pull requests, releases, gists, and the GitHub API.
+Perform GitHub operations using the `gh` CLI, which is pre-authenticated in the environment. This skill covers repositories, issues, pull requests, releases, gists, and the GitHub API.
 
 ## Available Commands
 
@@ -15,19 +15,19 @@ Perform GitHub operations using the `gh` CLI, which is pre-authenticated in the 
 # List user's repos
 gh repo list [owner] --limit 50
 
-# Create a new repo
-gh repo create <name> --public|--private [--description "desc"] [--clone]
+# Create a new repo (private by default; add --public only if explicitly requested)
+gh repo create <name> --private [--description "desc"] [--clone]
 
-# Clone a repo
-gh repo clone <owner/repo> [directory]
+# Clone a repo (always clone into the repos/ folder)
+gh repo clone <owner/repo> repos/<repo>
 
 # View repo info
 gh repo view <owner/repo>
 
-# Fork a repo
-gh repo fork <owner/repo> [--clone]
+# Fork a repo (clone into repos/ folder)
+gh repo fork <owner/repo> --clone -- repos/<repo>
 
-# Delete a repo (use with caution)
+# Delete a repo (REQUIRES user approval before executing)
 gh repo delete <owner/repo> --yes
 ```
 
@@ -109,13 +109,13 @@ gh pr ready <number> [-R owner/repo]
 # List releases
 gh release list [-R owner/repo]
 
-# Create a release
+# Create a release (REQUIRES user approval before executing)
 gh release create <tag> [-R owner/repo] --title "Title" --notes "Release notes" [--draft] [--prerelease]
 
 # View a release
 gh release view <tag> [-R owner/repo]
 
-# Delete a release
+# Delete a release (REQUIRES user approval before executing)
 gh release delete <tag> [-R owner/repo] --yes
 ```
 
@@ -202,9 +202,11 @@ gh run rerun <run-id> [-R owner/repo]
 
 ## Important Rules
 
+- **Workspace repo management**: All repos must be created, cloned, and managed from the `repos/` folder of the workspace. Always use `repos/` as the target directory for clone and fork operations.
+- **Private by default**: When creating new repos, always use `--private` unless the user explicitly requests a public repo.
+- **Destructive operations require approval**: Any potentially destructive operation — including deleting repos, deleting releases, deleting labels, force pushing, and any other irreversible action — **MUST** be confirmed with the user before executing. Never run these automatically.
 - **Always use `-R owner/repo`** when operating on a repo other than the current working directory's repo.
-- **Branch safety**: When creating PRs for CawPilot-managed code changes, always use `caw-*` branch prefix.
-- **Confirm destructive operations**: Before deleting repos, closing issues, or merging PRs, confirm with the user first.
+- **Branch safety**: When creating PRs for bot-managed code changes, always use `cp-*` branch prefix.
 - **Use `--json` for structured output** when you need to parse results programmatically:
   ```bash
   gh issue list --json number,title,state,labels
@@ -215,7 +217,6 @@ gh run rerun <run-id> [-R owner/repo]
   gh issue list --json number,title --jq '.[] | "\(.number): \(.title)"'
   ```
 - **Pagination**: For large result sets, use `--limit` or `--paginate` to control output.
-- **PR titles from CawPilot**: Use format `[CawPilot] <description>` when creating PRs on behalf of the bot.
 
 ## Examples
 
