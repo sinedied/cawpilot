@@ -12,7 +12,10 @@
     "start": "node dist/index.js",
     "clean": "rm -rf dist",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "docker:build": "docker build -t cawpilot .",
+    "docker:start": "docker run -it --rm -v ./workspace:/workspace -p 2243:2243 cawpilot start",
+    "docker:setup": "docker run -it --rm -v ./workspace:/workspace cawpilot setup"
   },
   "engines": {
     "node": ">=24.0.0"

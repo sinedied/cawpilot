@@ -198,9 +198,62 @@ CawPilot supports using your own API keys instead of a Copilot subscription. Con
 > [!NOTE]
 > CawPilot is built on the GitHub Copilot SDK which is currently in **Technical Preview**. APIs may change.
 
+## Docker
+
+Running CawPilot in Docker provides isolation — the agent can only access the mounted workspace, not your system.
+
+### Quick Start with Docker
+
+```bash
+# Build the image
+npm run docker:build
+
+# Run setup interactively
+npm run docker:setup
+
+# Start the bot
+npm run docker:start
+```
+
+### Manual Docker Usage
+
+```bash
+# Build
+docker build -t cawpilot .
+
+# Setup (interactive, with workspace bind mount)
+docker run -it --rm -v ./workspace:/workspace cawpilot setup
+
+# Start (with workspace persistence and port for HTTP API)
+docker run -it --rm \
+  -v ./workspace:/workspace \
+  -p 2243:2243 \
+  cawpilot start
+```
+
+> [!TIP]
+> The workspace is mounted as a bind volume so your configuration, database, and TODO list persist across container restarts.
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `CAWPILOT_WORKSPACE` | Workspace path inside container (default: `/workspace`) |
+| `GH_TOKEN` | GitHub token for authentication (alternative to `gh auth login`) |
+
+### GitHub Authentication in Docker
+
+Since `gh auth login` is interactive, you can pass a token instead:
+
+```bash
+docker run -it --rm \
+  -v ./workspace:/workspace \
+  -e GH_TOKEN=ghp_your_token_here \
+  cawpilot start
+```
+
 ## Post-MVP Roadmap
 
 - 🖥️ Web UI dashboard for configuration and interaction
-- 🐳 Docker container support
-- 📢 More channels: Slack, Discord, email
+-  More channels: Slack, Discord, email
 - 🔍 More skills: code review, PR management, CI/CD monitoring
