@@ -1,11 +1,17 @@
-import chalk from 'chalk';
-import ora from 'ora';
 import { randomBytes } from 'node:crypto';
 import { execSync, spawnSync } from 'node:child_process';
-import { input, confirm, checkbox, select } from '@inquirer/prompts';
-import { readdirSync, existsSync, cpSync, copyFileSync, mkdirSync } from 'node:fs';
+import {
+  readdirSync,
+  existsSync,
+  cpSync,
+  copyFileSync,
+  mkdirSync,
+} from 'node:fs';
 import { join, basename, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { input, confirm, checkbox, select } from '@inquirer/prompts';
+import ora from 'ora';
+import chalk from 'chalk';
 import {
   loadConfig,
   saveConfig,
@@ -14,15 +20,23 @@ import {
   type ChannelConfig,
 } from '../workspace/config.js';
 import { ensureWorkspace, getGitHubUser } from '../workspace/manager.js';
-import { startRuntime, stopRuntime, listAvailableModels, checkCopilotAuth } from '../agent/runtime.js';
+import {
+  startRuntime,
+  stopRuntime,
+  listAvailableModels,
+  checkCopilotAuth,
+} from '../agent/runtime.js';
 import { logger } from '../utils/logger.js';
 
 export async function runSetup(workspacePath: string): Promise<void> {
-
   console.log(chalk.bold.cyan('\n🐦 Welcome to CawPilot Setup\n'));
-  console.log(chalk.dim('This wizard will configure your CawPilot instance.\n'));
+  console.log(
+    chalk.dim('This wizard will configure your CawPilot instance.\n'),
+  );
 
-  ensureWorkspace(workspacePath);  ensureGitignore(workspacePath);  const config = loadConfig(workspacePath);
+  ensureWorkspace(workspacePath);
+  ensureGitignore(workspacePath);
+  const config = loadConfig(workspacePath);
 
   // Step 1: Channels
   console.log(chalk.bold('Step 1: Channels'));
@@ -54,6 +68,7 @@ export async function runSetup(workspacePath: string): Promise<void> {
       console.log(chalk.red('\n  GitHub authentication failed.'));
       return;
     }
+
     user = getGitHubUser();
     if (!user) {
       console.log(chalk.red('\n  GitHub authentication failed.'));
@@ -76,7 +91,11 @@ export async function runSetup(workspacePath: string): Promise<void> {
       message: 'Repository name:',
       default: `${user}/my-cawpilot`,
     });
-    config.persistence = { enabled: true, repo: repoName, backupIntervalDays: 1 };
+    config.persistence = {
+      enabled: true,
+      repo: repoName,
+      backupIntervalDays: 1,
+    };
   } else {
     config.persistence = { enabled: false, repo: '', backupIntervalDays: 1 };
   }
@@ -98,7 +117,9 @@ export async function runSetup(workspacePath: string): Promise<void> {
   ensureTemplate(workspacePath, 'USER.md');
 
   console.log(chalk.bold.green('\n✅ Setup complete!\n'));
-  console.log(chalk.dim('Customize your agent personality in .cawpilot/soul.md'));
+  console.log(
+    chalk.dim('Customize your agent personality in .cawpilot/soul.md'),
+  );
 
   const doBootstrap = await confirm({
     message: 'Run initial bootstrapping to customize the agent to your needs?',
@@ -106,18 +127,26 @@ export async function runSetup(workspacePath: string): Promise<void> {
   });
 
   if (doBootstrap) {
-    console.log(chalk.dim('\nStarting bootstrap... (you can also run it later with /bootstrap)\n'));
+    console.log(
+      chalk.dim(
+        '\nStarting bootstrap... (you can also run it later with /bootstrap)\n',
+      ),
+    );
     // Defer to start command which will handle the bootstrap
     const { runBootstrapStandalone } = await import('../agent/bootstrap.js');
     await runBootstrapStandalone(config);
   } else {
-    console.log(chalk.dim('You can run /bootstrap anytime after starting CawPilot.'));
+    console.log(
+      chalk.dim('You can run /bootstrap anytime after starting CawPilot.'),
+    );
   }
 
   console.log(chalk.dim('\nStart CawPilot with: cawpilot start\n'));
 }
 
-async function setupChannels(existing: ChannelConfig[]): Promise<ChannelConfig[]> {
+async function setupChannels(
+  existing: ChannelConfig[],
+): Promise<ChannelConfig[]> {
   const existingTg = existing.find((c) => c.type === 'telegram');
   const existingHttp = existing.find((c) => c.type === 'http');
 
@@ -143,7 +172,8 @@ async function setupChannels(existing: ChannelConfig[]): Promise<ChannelConfig[]
     const token = await input({
       message: 'Telegram Bot Token (from BotFather):',
       default: existingTg?.telegramToken ?? '',
-      transformer: (value) => value ? '•'.repeat(Math.min(value.length, 20)) : '',
+      transformer: (value) =>
+        value ? '•'.repeat(Math.min(value.length, 20)) : '',
     });
     channels.push({
       type: 'telegram',
@@ -151,7 +181,9 @@ async function setupChannels(existing: ChannelConfig[]): Promise<ChannelConfig[]
       telegramToken: token,
       allowList: existingTg?.allowList ?? [],
     });
-    console.log(chalk.dim('  Use /pair after starting to link your Telegram account.'));
+    console.log(
+      chalk.dim('  Use /pair after starting to link your Telegram account.'),
+    );
   }
 
   if (selected.includes('http')) {
@@ -159,15 +191,18 @@ async function setupChannels(existing: ChannelConfig[]): Promise<ChannelConfig[]
       message: 'HTTP API port:',
       default: String(existingHttp?.httpPort ?? 3000),
     });
-    const apiKey = existingHttp?.httpApiKey ?? randomBytes(24).toString('base64url');
+    const apiKey =
+      existingHttp?.httpApiKey ?? randomBytes(24).toString('base64url');
     channels.push({
       type: 'http',
       enabled: true,
-      httpPort: parseInt(port, 10),
+      httpPort: Number.parseInt(port, 10),
       httpApiKey: apiKey,
     });
     console.log(chalk.dim('  HTTP API Key: <see .cawpilot/config.json>'));
-    console.log(chalk.dim('  Use this key in the X-Api-Key header for requests.'));
+    console.log(
+      chalk.dim('  Use this key in the X-Api-Key header for requests.'),
+    );
   }
 
   return channels;
@@ -185,7 +220,9 @@ async function setupSkills(workspacePath: string): Promise<string[]> {
   }
 
   const available = readdirSync(skillsDir, { withFileTypes: true })
-    .filter((d) => d.isDirectory() && existsSync(join(skillsDir, d.name, 'SKILL.md')))
+    .filter(
+      (d) => d.isDirectory() && existsSync(join(skillsDir, d.name, 'SKILL.md')),
+    )
     .map((d) => d.name);
 
   if (available.length === 0) {
@@ -222,7 +259,9 @@ async function setupCopilotAndModel(currentModel: string): Promise<string> {
   let copilotOk = false;
   const spinner = ora('Checking Copilot CLI...').start();
   try {
-    const version = execSync('copilot --version', { stdio: 'pipe' }).toString().trim();
+    const version = execSync('copilot --version', { stdio: 'pipe' })
+      .toString()
+      .trim();
     spinner.succeed(`Copilot CLI: ${chalk.dim(version)}`);
     copilotOk = true;
   } catch {
@@ -235,16 +274,22 @@ async function setupCopilotAndModel(currentModel: string): Promise<string> {
       const installSpinner = ora('Installing Copilot CLI...').start();
       try {
         execSync('npm install -g @github/copilot', { stdio: 'pipe' });
-        const version = execSync('copilot --version', { stdio: 'pipe' }).toString().trim();
+        const version = execSync('copilot --version', { stdio: 'pipe' })
+          .toString()
+          .trim();
         installSpinner.succeed(`Copilot CLI installed: ${chalk.dim(version)}`);
         copilotOk = true;
       } catch {
         installSpinner.fail('Failed to install Copilot CLI');
-        console.log(chalk.yellow('  Install manually: npm install -g @github/copilot\n'));
+        console.log(
+          chalk.yellow('  Install manually: npm install -g @github/copilot\n'),
+        );
         return currentModel;
       }
     } else {
-      console.log(chalk.yellow('  CawPilot requires the Copilot CLI to operate.\n'));
+      console.log(
+        chalk.yellow('  CawPilot requires the Copilot CLI to operate.\n'),
+      );
       return currentModel;
     }
   }
@@ -253,16 +298,23 @@ async function setupCopilotAndModel(currentModel: string): Promise<string> {
   const authSpinner = ora('Checking Copilot authentication...').start();
   try {
     const authStatus = await checkCopilotAuth();
-    if (!authStatus.isAuthenticated) {
+    if (authStatus.isAuthenticated) {
+      authSpinner.succeed(
+        `Copilot authenticated as ${chalk.green(authStatus.login ?? 'user')}`,
+      );
+    } else {
       authSpinner.warn('Copilot CLI not authenticated');
       console.log(chalk.dim('  Running: copilot /login\n'));
-      const loginResult = spawnSync('copilot', ['/login'], { stdio: 'inherit' });
+      const loginResult = spawnSync('copilot', ['/login'], {
+        stdio: 'inherit',
+      });
       if (loginResult.status !== 0) {
         console.log(chalk.red('\n  Copilot authentication failed.'));
         console.log(chalk.yellow(`  Keeping current model: ${currentModel}\n`));
         await stopRuntime().catch(() => {});
         return currentModel;
       }
+
       // Re-check after login
       const recheck = await checkCopilotAuth();
       if (!recheck.isAuthenticated) {
@@ -271,10 +323,11 @@ async function setupCopilotAndModel(currentModel: string): Promise<string> {
         await stopRuntime().catch(() => {});
         return currentModel;
       }
+
       authSpinner.stop();
-      console.log(chalk.green(`  ✓ Authenticated as ${recheck.login ?? 'user'}`));
-    } else {
-      authSpinner.succeed(`Copilot authenticated as ${chalk.green(authStatus.login ?? 'user')}`);
+      console.log(
+        chalk.green(`  ✓ Authenticated as ${recheck.login ?? 'user'}`),
+      );
     }
   } catch {
     authSpinner.warn('Could not check Copilot auth status');
@@ -303,9 +356,11 @@ async function setupCopilotAndModel(currentModel: string): Promise<string> {
     });
 
     return chosen;
-  } catch (error) {
+  } catch {
     modelSpinner.fail('Failed to connect to Copilot CLI.');
-    console.log(chalk.yellow('  Make sure you are authenticated: copilot /login'));
+    console.log(
+      chalk.yellow('  Make sure you are authenticated: copilot /login'),
+    );
     console.log(chalk.yellow(`  Keeping current model: ${currentModel}\n`));
     await stopRuntime().catch(() => {});
     return currentModel;
@@ -317,7 +372,13 @@ function ensureTemplate(workspacePath: string, filename: string): void {
   if (existsSync(targetPath)) return;
 
   const devPath = join(process.cwd(), 'templates', filename);
-  const distPath = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'templates', filename);
+  const distPath = join(
+    dirname(fileURLToPath(import.meta.url)),
+    '..',
+    '..',
+    'templates',
+    filename,
+  );
   const src = existsSync(devPath) ? devPath : distPath;
 
   if (existsSync(src)) {
@@ -332,7 +393,13 @@ function ensureGitignore(workspacePath: string): void {
   if (existsSync(gitignorePath)) return;
 
   const devPath = join(process.cwd(), 'templates', '_.gitignore');
-  const distPath = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'templates', '_.gitignore');
+  const distPath = join(
+    dirname(fileURLToPath(import.meta.url)),
+    '..',
+    '..',
+    'templates',
+    '_.gitignore',
+  );
   const src = existsSync(devPath) ? devPath : distPath;
 
   if (existsSync(src)) {

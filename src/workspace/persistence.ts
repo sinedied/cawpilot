@@ -12,9 +12,12 @@ export function ensurePersistenceRepo(repo: string): void {
     execSync(`gh repo view ${repo} --json name`, { stdio: 'pipe' });
   } catch {
     logger.info(`Creating private repository ${repo}...`);
-    execSync(`gh repo create ${repo} --private --description "CawPilot backup"`, {
-      stdio: 'pipe',
-    });
+    execSync(
+      `gh repo create ${repo} --private --description "CawPilot backup"`,
+      {
+        stdio: 'pipe',
+      },
+    );
   }
 }
 
@@ -22,12 +25,15 @@ export function ensurePersistenceRepo(repo: string): void {
  * Run a backup: git init (if needed), add, commit with date, push.
  * Respects the workspace .gitignore.
  */
-export function runBackup(config: CawpilotConfig): { success: boolean; message: string } {
+export function runBackup(config: CawpilotConfig): {
+  success: boolean;
+  message: string;
+} {
   if (!config.persistence.enabled || !config.persistence.repo) {
     return { success: false, message: 'Persistence is not enabled.' };
   }
 
-  const repo = config.persistence.repo;
+  const { repo } = config.persistence;
   const ws = config.workspacePath;
 
   try {
@@ -36,7 +42,10 @@ export function runBackup(config: CawpilotConfig): { success: boolean; message: 
     // Init git repo if not already
     if (!existsSync(join(ws, '.git'))) {
       execSync('git init', { cwd: ws, stdio: 'pipe' });
-      execSync(`git remote add origin https://github.com/${repo}.git`, { cwd: ws, stdio: 'pipe' });
+      execSync(`git remote add origin https://github.com/${repo}.git`, {
+        cwd: ws,
+        stdio: 'pipe',
+      });
       logger.debug('Initialized git repo in workspace');
     }
 

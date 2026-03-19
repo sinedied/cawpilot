@@ -43,10 +43,12 @@ export function createScheduledTask(
   prompt: string,
 ): ScheduledTask {
   const id = randomUUID();
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO scheduled_tasks (id, name, schedule, prompt)
     VALUES (?, ?, ?, ?)
-  `).run(id, name, schedule, prompt);
+  `,
+  ).run(id, name, schedule, prompt);
 
   return {
     id,
@@ -62,11 +64,15 @@ export function createScheduledTask(
 
 export function getDueScheduledTasks(db: Database.Database): ScheduledTask[] {
   const now = new Date().toISOString();
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(
+      `
     SELECT * FROM scheduled_tasks
     WHERE enabled = 1 AND (next_run IS NULL OR next_run <= ?)
     ORDER BY next_run ASC
-  `).all(now) as ScheduledTaskRow[];
+  `,
+    )
+    .all(now) as ScheduledTaskRow[];
   return rows.map(rowToScheduledTask);
 }
 
@@ -76,16 +82,25 @@ export function updateScheduledTaskRun(
   nextRun: string,
 ): void {
   const now = new Date().toISOString();
-  db.prepare(`UPDATE scheduled_tasks SET last_run = ?, next_run = ? WHERE id = ?`)
-    .run(now, nextRun, id);
+  db.prepare(
+    `UPDATE scheduled_tasks SET last_run = ?, next_run = ? WHERE id = ?`,
+  ).run(now, nextRun, id);
 }
 
 export function getAllScheduledTasks(db: Database.Database): ScheduledTask[] {
-  const rows = db.prepare(`SELECT * FROM scheduled_tasks ORDER BY name ASC`)
+  const rows = db
+    .prepare(`SELECT * FROM scheduled_tasks ORDER BY name ASC`)
     .all() as ScheduledTaskRow[];
   return rows.map(rowToScheduledTask);
 }
 
-export function toggleScheduledTask(db: Database.Database, id: string, enabled: boolean): void {
-  db.prepare(`UPDATE scheduled_tasks SET enabled = ? WHERE id = ?`).run(enabled ? 1 : 0, id);
+export function toggleScheduledTask(
+  db: Database.Database,
+  id: string,
+  enabled: boolean,
+): void {
+  db.prepare(`UPDATE scheduled_tasks SET enabled = ? WHERE id = ?`).run(
+    enabled ? 1 : 0,
+    id,
+  );
 }

@@ -1,7 +1,11 @@
-import type { AgentProvider, AgentSession, AgentModel, AuthStatus, SessionOptions } from './provider.js';
-import { CopilotProvider } from './providers/copilot.js';
-
-export type { AgentProvider, AgentSession, AgentModel, AuthStatus, SessionOptions };
+import { CopilotProvider } from '../providers/copilot.js';
+import type {
+  AgentProvider,
+  AgentSession,
+  AgentModel,
+  AuthStatus,
+  SessionOptions,
+} from '../providers/provider.js';
 
 let provider: AgentProvider | undefined;
 
@@ -9,9 +13,7 @@ let provider: AgentProvider | undefined;
  * Get the current provider, or create the default (Copilot) one.
  */
 function getProvider(): AgentProvider {
-  if (!provider) {
-    provider = new CopilotProvider();
-  }
+  provider ??= new CopilotProvider();
   return provider;
 }
 
@@ -44,7 +46,17 @@ export async function checkCopilotAuth(): Promise<AuthStatus> {
   return p.checkAuth();
 }
 
-export async function createTaskSession(options: SessionOptions): Promise<AgentSession> {
+export async function createTaskSession(
+  options: SessionOptions,
+): Promise<AgentSession> {
   const p = getProvider();
   return p.createSession(options);
 }
+
+export {
+  type AgentProvider,
+  type AgentSession,
+  type AuthStatus,
+  type AgentModel,
+  type SessionOptions,
+} from '../providers/provider.js';

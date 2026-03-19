@@ -1,9 +1,19 @@
-import { CopilotClient, defineTool } from '@github/copilot-sdk';
-import type { CopilotSession } from '@github/copilot-sdk';
-import { getSkillsPath } from '../../workspace/config.js';
-import { buildTools, type ToolContext } from '../tools.js';
-import { logger } from '../../utils/logger.js';
-import type { AgentProvider, AgentSession, AgentModel, AuthStatus, SessionOptions, SendOptions } from '../provider.js';
+import {
+  CopilotClient,
+  defineTool,
+  type CopilotSession,
+} from '@github/copilot-sdk';
+import { getSkillsPath } from '../workspace/config.js';
+import { buildTools, type ToolContext } from '../agent/tools.js';
+import { logger } from '../utils/logger.js';
+import type {
+  AgentProvider,
+  AgentSession,
+  AgentModel,
+  AuthStatus,
+  SessionOptions,
+  SendOptions,
+} from './provider.js';
 
 class CopilotAgentSession implements AgentSession {
   readonly sessionId: string;
@@ -19,20 +29,38 @@ class CopilotAgentSession implements AgentSession {
       let lastMessage: { data?: { content?: string } } | undefined;
 
       const unsubscribe = this.session.on((event) => {
-        if (event.type === 'assistant.message') {
-          lastMessage = event as { data?: { content?: string } };
-        } else if (event.type === 'session.idle') {
-          unsubscribe();
-          resolve(lastMessage);
-        } else if (event.type === 'session.error') {
-          unsubscribe();
-          reject(new Error((event as { data?: { message?: string } }).data?.message ?? 'Session error'));
+        switch (event.type) {
+          case 'assistant.message': {
+            lastMessage = event as { data?: { content?: string } };
+
+            break;
+          }
+
+          case 'session.idle': {
+            unsubscribe();
+            resolve(lastMessage);
+
+            break;
+          }
+
+          case 'session.error': {
+            unsubscribe();
+            reject(
+              new Error(
+                (event as { data?: { message?: string } }).data?.message ??
+                  'Session error',
+              ),
+            );
+
+            break;
+          }
+          // No default
         }
       });
 
-      this.session.send(options).catch((err) => {
+      this.session.send(options).catch((error: unknown) => {
         unsubscribe();
-        reject(err);
+        reject(error instanceof Error ? error : new Error(String(error)));
       });
     });
   }
@@ -45,7 +73,10 @@ class CopilotAgentSession implements AgentSession {
     return result as { data?: { content?: string } } | undefined;
   }
 
-  on(eventType: string, handler: (event: { data?: Record<string, unknown> }) => void): () => void {
+  on(
+    eventType: string,
+    handler: (event: { data?: Record<string, unknown> }) => void,
+  ): () => void {
     return this.session.on((event) => {
       if (event.type === eventType) {
         handler(event as { data?: Record<string, unknown> });
@@ -106,7 +137,8 @@ export class CopilotProvider implements AgentProvider {
   }
 
   async createSession(options: SessionOptions): Promise<AgentSession> {
-    if (!this.client) throw new Error('Provider not started. Call start() first.');
+    if (!this.client)
+      throw new Error('Provider not started. Call start() first.');
 
     const toolCtx: ToolContext = {
       db: options.db,
@@ -136,13 +168,16 @@ export class CopilotProvider implements AgentProvider {
       systemMessage: {
         content: options.systemPrompt,
       },
-      provider: options.config.provider as Parameters<typeof this.client.createSession>[0]['provider'],
+      provider: options.config.provider as Parameters<
+        typeof this.client.createSession
+      >[0]['provider'],
       onPermissionRequest: async () => ({ kind: 'approved' as const }),
-      onUserInputRequest: async (request: { question: string }) => {
+      async onUserInputRequest(request: { question: string }) {
         const channel = options.channels.get(options.sourceChannel);
         if (channel) {
           await channel.send(options.sourceSender, `❓ ${request.question}`);
         }
+
         return { answer: 'Waiting for user response...', wasFreeform: true };
       },
     });

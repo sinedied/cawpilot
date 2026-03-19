@@ -1,12 +1,11 @@
 import type Database from 'better-sqlite3';
-import type { CawpilotConfig } from '../workspace/config.js';
-import { getContextFiles } from '../workspace/config.js';
+import { type CawpilotConfig, getContextFiles } from '../workspace/config.js';
 import type { Channel } from '../channels/types.js';
 import { getMessagesByTask } from '../db/messages.js';
 import { updateTaskStatus, setTaskSessionId, type Task } from '../db/tasks.js';
+import { logger } from '../utils/logger.js';
 import { createTaskSession } from './runtime.js';
 import { buildTaskSystemPrompt } from './prompts.js';
-import { logger } from '../utils/logger.js';
 
 export async function runTask(
   task: Task,
@@ -52,7 +51,7 @@ export async function runTask(
       sourceChannel: sourceMessage.channel,
       sourceSender: sourceMessage.sender,
       systemPrompt,
-      onAssistantMessage: (content) => {
+      onAssistantMessage(content) {
         logger.debug(`Task ${task.id} assistant: ${content.slice(0, 100)}...`);
       },
     });

@@ -1,23 +1,36 @@
-import type Database from 'better-sqlite3';
-import chalk from 'chalk';
 import { execSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { CawpilotConfig } from '../workspace/config.js';
-import { getContextFiles } from '../workspace/config.js';
+import type Database from 'better-sqlite3';
+import chalk from 'chalk';
+import { type CawpilotConfig, getContextFiles } from '../workspace/config.js';
 import { runBackup } from '../workspace/persistence.js';
 import type { Channel } from '../channels/types.js';
-import { getUnprocessedMessages, markMessagesProcessing, getRecentHistory } from '../db/messages.js';
-import { createTask, getActiveTasks, getAllTasks, type Task } from '../db/tasks.js';
-import { createScheduledTask, getDueScheduledTasks, getAllScheduledTasks, updateScheduledTaskRun } from '../db/scheduled.js';
-import { createTaskSession } from './runtime.js';
-import { TRIAGE_SYSTEM_PROMPT, buildTaskSystemPrompt } from './prompts.js';
-import { archiveCompletedTasks } from './cleanup.js';
-import { runTask } from './task-runner.js';
+import {
+  getUnprocessedMessages,
+  markMessagesProcessing,
+  getRecentHistory,
+} from '../db/messages.js';
+import {
+  createTask,
+  getActiveTasks,
+  getAllTasks,
+  type Task,
+} from '../db/tasks.js';
+import {
+  createScheduledTask,
+  getDueScheduledTasks,
+  getAllScheduledTasks,
+  updateScheduledTaskRun,
+} from '../db/scheduled.js';
 import { setNotification } from '../cli/dashboard.js';
 import { logger } from '../utils/logger.js';
+import { archiveCompletedTasks } from '../workspace/cleanup.js';
+import { TRIAGE_SYSTEM_PROMPT, buildTaskSystemPrompt } from './prompts.js';
+import { createTaskSession } from './runtime.js';
+import { runTask } from './task-runner.js';
 
-const POLL_INTERVAL_MS = 5_000;
+const POLL_INTERVAL_MS = 5000;
 const SCHEDULER_INTERVAL_MS = 60_000;
 
 export class Orchestrator {
@@ -42,8 +55,14 @@ export class Orchestrator {
 
   start(): void {
     logger.info('Orchestrator started');
-    this.pollTimer = setInterval(() => this.processMessages(), POLL_INTERVAL_MS);
-    this.schedulerTimer = setInterval(() => this.checkScheduledTasks(), SCHEDULER_INTERVAL_MS);
+    this.pollTimer = setInterval(
+      async () => this.processMessages(),
+      POLL_INTERVAL_MS,
+    );
+    this.schedulerTimer = setInterval(
+      async () => this.checkScheduledTasks(),
+      SCHEDULER_INTERVAL_MS,
+    );
 
     // Ensure default scheduled tasks exist
     this.ensureDefaultScheduledTasks();
@@ -82,15 +101,21 @@ export class Orchestrator {
       for (const plan of taskPlan.slice(0, availableSlots)) {
         const task = createTask(this.db, plan.title);
         markMessagesProcessing(this.db, plan.messageIds, task.id);
-        setNotification(chalk.yellow(`⟳ Working on: ${task.title.slice(0, 40)}`));
+        setNotification(
+          chalk.yellow(`⟳ Working on: ${task.title.slice(0, 40)}`),
+        );
 
         const taskPromise = runTask(task, this.config, this.db, this.channels)
           .then(() => {
             this._processedCount++;
-            setNotification(chalk.green(`✅ Task done: ${task.title.slice(0, 40)}`));
+            setNotification(
+              chalk.green(`✅ Task done: ${task.title.slice(0, 40)}`),
+            );
           })
           .catch(() => {
-            setNotification(chalk.red(`❌ Task failed: ${task.title.slice(0, 40)}`));
+            setNotification(
+              chalk.red(`❌ Task failed: ${task.title.slice(0, 40)}`),
+            );
           })
           .finally(() => {
             this.runningTasks.delete(task.id);
@@ -108,19 +133,22 @@ export class Orchestrator {
 
   private async triageMessages(
     messages: ReturnType<typeof getUnprocessedMessages>,
-  ): Promise<{ title: string; messageIds: string[] }[]> {
+  ): Promise<Array<{ title: string; messageIds: string[] }>> {
     // Fetch recent history for context
     const history = getRecentHistory(this.db, this.config.contextMessagesCount);
-    const historyContext = history.length > 0
-      ? `Recent conversation history (for context):\n${history.map((m) => `[${m.role}] ${m.channel}/${m.sender}: ${m.content}`).join('\n')}\n\n`
-      : '';
+    const historyContext =
+      history.length > 0
+        ? `Recent conversation history (for context):\n${history.map((m) => `[${m.role}] ${m.channel}/${m.sender}: ${m.content}`).join('\n')}\n\n`
+        : '';
 
     // For a single message, create a task directly without LLM triage
     if (messages.length === 1) {
-      return [{
-        title: messages[0].content.slice(0, 100),
-        messageIds: [messages[0].id],
-      }];
+      return [
+        {
+          title: messages[0].content.slice(0, 100),
+          messageIds: [messages[0].id],
+        },
+      ];
     }
 
     // For multiple messages, use the LLM to group them into tasks
@@ -136,18 +164,27 @@ export class Orchestrator {
       });
 
       const messageList = messages
-        .map((m) => `ID: ${m.id} | Channel: ${m.channel} | Sender: ${m.sender} | Content: ${m.content}`)
+        .map(
+          (m) =>
+            `ID: ${m.id} | Channel: ${m.channel} | Sender: ${m.sender} | Content: ${m.content}`,
+        )
         .join('\n');
 
-      const response = await session.sendAndWait({
-        prompt: `${historyContext}Group these new messages into tasks:\n${messageList}`,
-      }, 120_000);
+      const response = await session.sendAndWait(
+        {
+          prompt: `${historyContext}Group these new messages into tasks:\n${messageList}`,
+        },
+        120_000,
+      );
       await session.disconnect();
 
       if (response?.data?.content) {
-        const jsonMatch = response.data.content.match(/\[[\s\S]*\]/);
+        const jsonMatch = /\[[\s\S]*\]/v.exec(response.data.content);
         if (jsonMatch) {
-          return JSON.parse(jsonMatch[0]) as { title: string; messageIds: string[] }[];
+          return JSON.parse(jsonMatch[0]) as Array<{
+            title: string;
+            messageIds: string[];
+          }>;
         }
       }
     } catch (error) {
@@ -167,8 +204,10 @@ export class Orchestrator {
       logger.info(`Running scheduled task: ${scheduled.name}`);
 
       // Calculate next run (simple interval in minutes parsed from schedule)
-      const intervalMinutes = parseInt(scheduled.schedule, 10) || 60;
-      const nextRun = new Date(Date.now() + intervalMinutes * 60_000).toISOString();
+      const intervalMinutes = Number.parseInt(scheduled.schedule, 10) || 60;
+      const nextRun = new Date(
+        Date.now() + intervalMinutes * 60_000,
+      ).toISOString();
       updateScheduledTaskRun(this.db, scheduled.id, nextRun);
 
       // Handle internal tasks directly
@@ -179,11 +218,12 @@ export class Orchestrator {
 
       const task = createTask(this.db, `[Scheduled] ${scheduled.name}`);
 
-      const taskPromise = this.runScheduledTask(task, scheduled.prompt)
-        .finally(() => {
+      const taskPromise = this.runScheduledTask(task, scheduled.prompt).finally(
+        () => {
           this.runningTasks.delete(task.id);
           this.updateTodoFile();
-        });
+        },
+      );
 
       this.runningTasks.set(task.id, taskPromise);
     }
@@ -192,14 +232,19 @@ export class Orchestrator {
   private runInternalTask(prompt: string): void {
     const action = prompt.replace('@internal:', '');
     switch (action) {
-      case 'cleanup':
+      case 'cleanup': {
         this.autoCleanup();
         break;
-      case 'backup':
+      }
+
+      case 'backup': {
         this.autoBackup();
         break;
-      default:
+      }
+
+      default: {
         logger.warn(`Unknown internal task: ${action}`);
+      }
     }
   }
 
@@ -210,15 +255,30 @@ export class Orchestrator {
     // Cleanup task: run based on cleanupIntervalDays
     if (!existingNames.has('cleanup')) {
       const intervalMinutes = this.config.cleanupIntervalDays * 24 * 60;
-      createScheduledTask(this.db, 'cleanup', String(intervalMinutes), '@internal:cleanup');
-      logger.info(`Created default scheduled task: cleanup (every ${this.config.cleanupIntervalDays} day(s))`);
+      createScheduledTask(
+        this.db,
+        'cleanup',
+        String(intervalMinutes),
+        '@internal:cleanup',
+      );
+      logger.info(
+        `Created default scheduled task: cleanup (every ${this.config.cleanupIntervalDays} day(s))`,
+      );
     }
 
     // Backup task: only if persistence is enabled
     if (this.config.persistence.enabled && !existingNames.has('backup')) {
-      const intervalMinutes = this.config.persistence.backupIntervalDays * 24 * 60;
-      createScheduledTask(this.db, 'backup', String(intervalMinutes), '@internal:backup');
-      logger.info(`Created default scheduled task: backup (every ${this.config.persistence.backupIntervalDays} day(s))`);
+      const intervalMinutes =
+        this.config.persistence.backupIntervalDays * 24 * 60;
+      createScheduledTask(
+        this.db,
+        'backup',
+        String(intervalMinutes),
+        '@internal:backup',
+      );
+      logger.info(
+        `Created default scheduled task: backup (every ${this.config.persistence.backupIntervalDays} day(s))`,
+      );
     }
   }
 
@@ -242,7 +302,10 @@ export class Orchestrator {
       const contextFiles = getContextFiles(this.config.workspacePath);
       await session.send({
         prompt,
-        attachments: contextFiles.map((p) => ({ type: 'file' as const, path: p })),
+        attachments: contextFiles.map((p) => ({
+          type: 'file' as const,
+          path: p,
+        })),
       });
       await session.disconnect();
       this._processedCount++;
@@ -254,35 +317,45 @@ export class Orchestrator {
   private updateTodoFile(): void {
     const tasks = getAllTasks(this.db);
     const statusIcons: Record<string, string> = {
-      'pending': '⏳',
+      pending: '⏳',
       'in-progress': '🔄',
-      'completed': '✅',
-      'failed': '❌',
+      completed: '✅',
+      failed: '❌',
       'need-info': '❓',
     };
 
     const lines = ['# CawPilot Tasks\n'];
-    const active = tasks.filter((t) => t.status !== 'completed' && t.status !== 'failed');
-    const done = tasks.filter((t) => t.status === 'completed' || t.status === 'failed');
+    const active = tasks.filter(
+      (t) => t.status !== 'completed' && t.status !== 'failed',
+    );
+    const done = tasks.filter(
+      (t) => t.status === 'completed' || t.status === 'failed',
+    );
 
     if (active.length > 0) {
       lines.push('## Active\n');
       for (const t of active) {
-        lines.push(`- ${statusIcons[t.status] || '•'} **${t.title}** (${t.status})`);
+        lines.push(
+          `- ${statusIcons[t.status] || '•'} **${t.title}** (${t.status})`,
+        );
       }
+
       lines.push('');
     }
 
     if (done.length > 0) {
       lines.push('## Completed\n');
       for (const t of done.slice(0, 20)) {
-        lines.push(`- ${statusIcons[t.status] || '•'} ${t.title}${t.result ? ` — ${t.result}` : ''}`);
+        lines.push(
+          `- ${statusIcons[t.status] || '•'} ${t.title}${t.result ? ` — ${t.result}` : ''}`,
+        );
       }
+
       lines.push('');
     }
 
     const todoPath = join(this.config.workspacePath, 'TODO.md');
-    writeFileSync(todoPath, lines.join('\n'), 'utf-8');
+    writeFileSync(todoPath, lines.join('\n'), 'utf8');
   }
 
   archiveCompletedTasks(): void {
@@ -301,11 +374,16 @@ export class Orchestrator {
 
     // Check last backup by looking at git log
     try {
-      const lastCommit = execSync('git log -1 --format=%ci', { cwd: this.config.workspacePath, stdio: 'pipe' })
-        .toString().trim();
+      const lastCommit = execSync('git log -1 --format=%ci', {
+        cwd: this.config.workspacePath,
+        stdio: 'pipe',
+      })
+        .toString()
+        .trim();
 
       if (lastCommit) {
-        const daysSince = (Date.now() - new Date(lastCommit).getTime()) / (1000 * 60 * 60 * 24);
+        const daysSince =
+          (Date.now() - new Date(lastCommit).getTime()) / (1000 * 60 * 60 * 24);
         if (daysSince < this.config.persistence.backupIntervalDays) {
           return;
         }

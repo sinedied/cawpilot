@@ -1,6 +1,6 @@
-import Database from 'better-sqlite3';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+import Database from 'better-sqlite3';
 import { logger } from '../utils/logger.js';
 
 let db: Database.Database | undefined;

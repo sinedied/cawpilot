@@ -38,7 +38,9 @@ export function pullRepo(repoDir: string): void {
     execSync('git pull --ff-only', { cwd: repoDir, stdio: 'pipe' });
     logger.debug(`Pulled latest for ${basename(repoDir)}`);
   } catch {
-    logger.warn(`Failed to pull ${basename(repoDir)}, continuing with existing state`);
+    logger.warn(
+      `Failed to pull ${basename(repoDir)}, continuing with existing state`,
+    );
   }
 }
 
@@ -67,7 +69,7 @@ export function createPullRequest(
   body: string,
 ): string {
   const result = execSync(
-    `gh pr create --title "${title.replace(/"/g, '\\"')}" --body "${body.replace(/"/g, '\\"')}" --head "$(git branch --show-current)"`,
+    `gh pr create --title "${title.replaceAll('"', String.raw`\"`)}" --body "${body.replaceAll('"', String.raw`\"`)}" --head "$(git branch --show-current)"`,
     { cwd: repoDir, stdio: 'pipe' },
   );
   const prUrl = result.toString().trim();
@@ -96,11 +98,7 @@ export function listUserRepos(): string[] {
       'gh repo list --json nameWithOwner --limit 100 -q ".[].nameWithOwner"',
       { stdio: 'pipe' },
     );
-    return result
-      .toString()
-      .trim()
-      .split('\n')
-      .filter(Boolean);
+    return result.toString().trim().split('\n').filter(Boolean);
   } catch {
     logger.error('Failed to list repos. Is GitHub CLI authenticated?');
     return [];

@@ -1,17 +1,17 @@
-import express, { type Request, type Response } from 'express';
 import type { Server } from 'node:http';
 import { timingSafeEqual, randomUUID } from 'node:crypto';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import express, { type Request, type Response } from 'express';
 import { logger } from '../utils/logger.js';
 import type { Attachment, Channel, MessageHandler } from './types.js';
 
-interface HttpAttachment {
+type HttpAttachment = {
   type?: 'image' | 'audio' | 'file';
   mimeType: string;
-  data: string; // base64
+  data: string; // Base64
   fileName?: string;
-}
+};
 
 export class HttpChannel implements Channel {
   readonly name = 'http';
@@ -20,7 +20,7 @@ export class HttpChannel implements Channel {
   private attachmentsDir: string | undefined;
 
   constructor(
-    private readonly port: number = 3000,
+    private readonly port = 3000,
     private readonly apiKey?: string,
   ) {}
 
@@ -37,7 +37,9 @@ export class HttpChannel implements Channel {
     // API key auth middleware for message endpoint
     const requireAuth = (req: Request, res: Response, next: () => void) => {
       if (!this.apiKey) {
-        res.status(403).json({ error: 'HTTP channel not configured with an API key' });
+        res
+          .status(403)
+          .json({ error: 'HTTP channel not configured with an API key' });
         return;
       }
 
@@ -46,6 +48,7 @@ export class HttpChannel implements Channel {
         res.status(401).json({ error: 'Invalid or missing API key' });
         return;
       }
+
       next();
     };
 
@@ -94,6 +97,7 @@ export class HttpChannel implements Channel {
         resolve();
         return;
       }
+
       this.server.close((err) => {
         if (err) reject(err);
         else resolve();
@@ -108,7 +112,8 @@ export class HttpChannel implements Channel {
   }
 
   private saveAttachment(input: HttpAttachment): Attachment {
-    if (!this.attachmentsDir) throw new Error('Attachments directory not configured');
+    if (!this.attachmentsDir)
+      throw new Error('Attachments directory not configured');
 
     const type = input.type ?? inferType(input.mimeType);
     const ext = mimeToExt(input.mimeType);
@@ -137,8 +142,14 @@ function inferType(mimeType: string): Attachment['type'] {
 
 function mimeToExt(mimeType: string): string {
   const map: Record<string, string> = {
-    'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp',
-    'audio/ogg': 'ogg', 'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'audio/webm': 'webm',
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+    'audio/ogg': 'ogg',
+    'audio/mpeg': 'mp3',
+    'audio/wav': 'wav',
+    'audio/webm': 'webm',
   };
   return map[mimeType] ?? mimeType.split('/').pop() ?? 'bin';
 }

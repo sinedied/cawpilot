@@ -1,15 +1,15 @@
-import chalk from 'chalk';
-import ora from 'ora';
 import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import chalk from 'chalk';
+import ora from 'ora';
 import { loadConfig, configExists, getDbPath } from '../workspace/config.js';
 import { logger } from '../utils/logger.js';
 
-interface CheckResult {
+type CheckResult = {
   name: string;
   ok: boolean;
   detail: string;
-}
+};
 
 export async function runDoctor(workspacePath: string): Promise<void> {
   console.log(chalk.bold.cyan('\n🐦 CawPilot Doctor\n'));
@@ -21,20 +21,13 @@ export async function runDoctor(workspacePath: string): Promise<void> {
   checks.push(checkCopilotCli());
   spinner.stop();
 
-  // Check GitHub CLI
-  checks.push(checkGitHubCli());
-
-  // Check GitHub auth
-  checks.push(checkGitHubAuth());
-
-  // Check Node.js version
-  checks.push(checkNodeVersion());
-
-  // Check config exists
-  checks.push(checkConfig(workspacePath));
-
-  // Check database path writable
-  checks.push(checkDatabase(workspacePath));
+  checks.push(
+    checkGitHubCli(),
+    checkGitHubAuth(),
+    checkNodeVersion(),
+    checkConfig(workspacePath),
+    checkDatabase(workspacePath),
+  );
 
   // Print results
   console.log('');
@@ -56,37 +49,58 @@ export async function runDoctor(workspacePath: string): Promise<void> {
 
 function checkCopilotCli(): CheckResult {
   try {
-    const version = execSync('copilot --version', { stdio: 'pipe' }).toString().trim();
+    const version = execSync('copilot --version', { stdio: 'pipe' })
+      .toString()
+      .trim();
     return { name: 'Copilot CLI', ok: true, detail: version };
   } catch {
-    return { name: 'Copilot CLI', ok: false, detail: 'Not found. Install from https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli' };
+    return {
+      name: 'Copilot CLI',
+      ok: false,
+      detail:
+        'Not found. Install from https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli',
+    };
   }
 }
 
 function checkGitHubCli(): CheckResult {
   try {
-    const version = execSync('gh --version', { stdio: 'pipe' }).toString().split('\n')[0].trim();
+    const version = execSync('gh --version', { stdio: 'pipe' })
+      .toString()
+      .split('\n')[0]
+      .trim();
     return { name: 'GitHub CLI', ok: true, detail: version };
   } catch {
-    return { name: 'GitHub CLI', ok: false, detail: 'Not found. Install from https://cli.github.com/' };
+    return {
+      name: 'GitHub CLI',
+      ok: false,
+      detail: 'Not found. Install from https://cli.github.com/',
+    };
   }
 }
 
 function checkGitHubAuth(): CheckResult {
   try {
-    const status = execSync('gh auth status', { stdio: 'pipe' }).toString().trim();
+    const status = execSync('gh auth status', { stdio: 'pipe' })
+      .toString()
+      .trim();
     return { name: 'GitHub Auth', ok: true, detail: 'Authenticated' };
   } catch {
-    return { name: 'GitHub Auth', ok: false, detail: 'Not authenticated. Run: gh auth login' };
+    return {
+      name: 'GitHub Auth',
+      ok: false,
+      detail: 'Not authenticated. Run: gh auth login',
+    };
   }
 }
 
 function checkNodeVersion(): CheckResult {
-  const version = process.version;
-  const major = parseInt(version.slice(1), 10);
+  const { version } = process;
+  const major = Number.parseInt(version.slice(1), 10);
   if (major >= 24) {
     return { name: 'Node.js', ok: true, detail: version };
   }
+
   return { name: 'Node.js', ok: false, detail: `${version} (requires 24+)` };
 }
 
@@ -94,17 +108,31 @@ function checkConfig(workspacePath: string): CheckResult {
   if (configExists(workspacePath)) {
     return { name: 'Configuration', ok: true, detail: 'Found' };
   }
-  return { name: 'Configuration', ok: false, detail: 'Not found. Run: cawpilot setup' };
+
+  return {
+    name: 'Configuration',
+    ok: false,
+    detail: 'Not found. Run: cawpilot setup',
+  };
 }
 
 function checkDatabase(workspacePath: string): CheckResult {
   const dbDir = getDbPath(workspacePath).replace('/data.sqlite', '');
   try {
     if (!existsSync(dbDir)) {
-      return { name: 'Database', ok: true, detail: 'Directory will be created on start' };
+      return {
+        name: 'Database',
+        ok: true,
+        detail: 'Directory will be created on start',
+      };
     }
+
     return { name: 'Database', ok: true, detail: 'Directory exists' };
   } catch {
-    return { name: 'Database', ok: false, detail: 'Cannot access database directory' };
+    return {
+      name: 'Database',
+      ok: false,
+      detail: 'Cannot access database directory',
+    };
   }
 }

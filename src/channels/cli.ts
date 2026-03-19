@@ -32,7 +32,7 @@ export class CliChannel implements Channel {
 
       // Handle slash commands
       if (content.startsWith('/')) {
-        const parts = content.slice(1).split(/\s+/);
+        const parts = content.slice(1).split(/\s+/v);
         const command = parts[0];
         const args = parts.slice(1);
         this.commandHandler?.(command, 'cli', 'local', args);
@@ -54,7 +54,9 @@ export class CliChannel implements Channel {
 
   async send(_sender: string, content: string): Promise<void> {
     // Output via stdout — the dashboard refresh will re-print the prompt after
-    process.stdout.write(`\n${chalk.cyan('CawPilot')}${chalk.dim(':')} ${content}\n`);
+    process.stdout.write(
+      `\n${chalk.cyan('CawPilot')}${chalk.dim(':')} ${content}\n`,
+    );
     process.stdout.write(chalk.green('> '));
   }
 }

@@ -50,10 +50,12 @@ export function createMessage(
   attachments: Attachment[] = [],
 ): Message {
   const id = randomUUID();
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO messages (id, channel, sender, role, content, attachments)
     VALUES (?, ?, ?, 'user', ?, ?)
-  `).run(id, channel, sender, content, JSON.stringify(attachments));
+  `,
+  ).run(id, channel, sender, content, JSON.stringify(attachments));
 
   return {
     id,
@@ -76,10 +78,12 @@ export function createBotMessage(
   taskId?: string,
 ): Message {
   const id = randomUUID();
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO messages (id, channel, sender, role, content, status, task_id)
     VALUES (?, ?, ?, 'assistant', ?, 'processed', ?)
-  `).run(id, channel, recipient, content, taskId ?? null);
+  `,
+  ).run(id, channel, recipient, content, taskId ?? null);
 
   return {
     id,
@@ -94,25 +98,39 @@ export function createBotMessage(
   };
 }
 
-export function getRecentHistory(db: Database.Database, limit: number = 10): Message[] {
-  const rows = db.prepare(`
+export function getRecentHistory(db: Database.Database, limit = 10): Message[] {
+  const rows = db
+    .prepare(
+      `
     SELECT * FROM messages
     WHERE status IN ('processing', 'processed')
     ORDER BY created_at DESC, rowid DESC
     LIMIT ?
-  `).all(limit) as MessageRow[];
+  `,
+    )
+    .all(limit) as MessageRow[];
   return rows.map(rowToMessage).reverse();
 }
 
 export function getUnprocessedMessages(db: Database.Database): Message[] {
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(
+      `
     SELECT * FROM messages WHERE status = 'unprocessed' ORDER BY created_at ASC
-  `).all() as MessageRow[];
+  `,
+    )
+    .all() as MessageRow[];
   return rows.map(rowToMessage);
 }
 
-export function markMessagesProcessing(db: Database.Database, ids: string[], taskId: string): void {
-  const stmt = db.prepare(`UPDATE messages SET status = 'processing', task_id = ? WHERE id = ?`);
+export function markMessagesProcessing(
+  db: Database.Database,
+  ids: string[],
+  taskId: string,
+): void {
+  const stmt = db.prepare(
+    `UPDATE messages SET status = 'processing', task_id = ? WHERE id = ?`,
+  );
   const tx = db.transaction(() => {
     for (const id of ids) {
       stmt.run(taskId, id);
@@ -121,18 +139,32 @@ export function markMessagesProcessing(db: Database.Database, ids: string[], tas
   tx();
 }
 
-export function markMessagesProcessed(db: Database.Database, taskId: string): void {
-  db.prepare(`UPDATE messages SET status = 'processed' WHERE task_id = ?`).run(taskId);
+export function markMessagesProcessed(
+  db: Database.Database,
+  taskId: string,
+): void {
+  db.prepare(`UPDATE messages SET status = 'processed' WHERE task_id = ?`).run(
+    taskId,
+  );
 }
 
-export function getMessagesByTask(db: Database.Database, taskId: string): Message[] {
-  const rows = db.prepare(`
+export function getMessagesByTask(
+  db: Database.Database,
+  taskId: string,
+): Message[] {
+  const rows = db
+    .prepare(
+      `
     SELECT * FROM messages WHERE task_id = ? ORDER BY created_at ASC
-  `).all(taskId) as MessageRow[];
+  `,
+    )
+    .all(taskId) as MessageRow[];
   return rows.map(rowToMessage);
 }
 
 export function getMessageCount(db: Database.Database): number {
-  const row = db.prepare('SELECT COUNT(*) as count FROM messages').get() as { count: number };
+  const row = db.prepare('SELECT COUNT(*) as count FROM messages').get() as {
+    count: number;
+  };
   return row.count;
 }

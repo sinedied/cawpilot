@@ -3,7 +3,11 @@ import { existsSync, rmSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
-import { ensureWorkspace, isSafeBranch, getReposPath } from '../../src/workspace/manager.js';
+import {
+  ensureWorkspace,
+  isSafeBranch,
+  getReposPath,
+} from '../../src/workspace/manager.js';
 
 describe('workspace/manager', () => {
   let tmpDir: string;

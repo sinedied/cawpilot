@@ -19,7 +19,9 @@ describe('channels/http', () => {
     await http.start(() => {});
 
     // Get the actual port from the server
-    const server = (http as unknown as { server: { address: () => { port: number } } }).server;
+    const server = (
+      http as unknown as { server: { address: () => { port: number } } }
+    ).server;
     const port = server.address().port;
 
     const res = await fetch(`http://localhost:${port}/api/health`);
@@ -35,7 +37,9 @@ describe('channels/http', () => {
     const http = new HttpChannel(0, 'test-key');
     await http.start(() => {});
 
-    const server = (http as unknown as { server: { address: () => { port: number } } }).server;
+    const server = (
+      http as unknown as { server: { address: () => { port: number } } }
+    ).server;
     const port = server.address().port;
 
     const res = await fetch(`http://localhost:${port}/api/messages`, {
@@ -52,9 +56,13 @@ describe('channels/http', () => {
   it('accepts message with valid API key', async () => {
     let received: unknown = null;
     const http = new HttpChannel(0, 'test-key');
-    await http.start((msg) => { received = msg; });
+    await http.start((msg) => {
+      received = msg;
+    });
 
-    const server = (http as unknown as { server: { address: () => { port: number } } }).server;
+    const server = (
+      http as unknown as { server: { address: () => { port: number } } }
+    ).server;
     const port = server.address().port;
 
     const res = await fetch(`http://localhost:${port}/api/messages`, {
@@ -81,7 +89,9 @@ describe('channels/http', () => {
     const http = new HttpChannel(0, 'test-key');
     await http.start(() => {});
 
-    const server = (http as unknown as { server: { address: () => { port: number } } }).server;
+    const server = (
+      http as unknown as { server: { address: () => { port: number } } }
+    ).server;
     const port = server.address().port;
 
     const res = await fetch(`http://localhost:${port}/api/messages`, {
@@ -102,7 +112,9 @@ describe('channels/http', () => {
     const http = new HttpChannel(0, 'test-key');
     await http.start(() => {});
 
-    const server = (http as unknown as { server: { address: () => { port: number } } }).server;
+    const server = (
+      http as unknown as { server: { address: () => { port: number } } }
+    ).server;
     const port = server.address().port;
 
     const res = await fetch(`http://localhost:${port}/api/messages`, {
@@ -124,9 +136,13 @@ describe('channels/http', () => {
     let received: ChannelMessage | null = null;
     const http = new HttpChannel(0, 'test-key');
     http.setAttachmentsDir(tmpDir);
-    await http.start((msg) => { received = msg; });
+    await http.start((msg) => {
+      received = msg;
+    });
 
-    const server = (http as unknown as { server: { address: () => { port: number } } }).server;
+    const server = (
+      http as unknown as { server: { address: () => { port: number } } }
+    ).server;
     const port = server.address().port;
 
     const imageData = Buffer.from('fake-png-data').toString('base64');

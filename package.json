@@ -14,6 +14,8 @@
     "clean": "rm -rf dist",
     "test": "vitest run",
     "test:watch": "vitest",
+    "lint": "xo --ignore 'tests/**'",
+    "lint:fix": "xo --fix --ignore 'tests/**'",
     "docker:build": "docker build -t cawpilot .",
     "docker:start": "docker run -it --rm -v ./workspace:/workspace -p 2243:2243 cawpilot start",
     "docker:setup": "docker run -it --rm -v ./workspace:/workspace cawpilot setup"
@@ -48,6 +50,52 @@
     "@types/node": "^25.5.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.0"
+    "vitest": "^4.1.0",
+    "xo": "^2.0.2"
+  },
+  "xo": {
+    "prettier": true,
+    "space": true,
+    "ignores": [
+      ".agents/**",
+      "workspace/**",
+      "dist/**",
+      "skills/**",
+      "templates/**",
+      "tests/**"
+    ],
+    "rules": {
+      "@typescript-eslint/no-unsafe-call": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-type-assertion": "off",
+      "@typescript-eslint/naming-convention": "off",
+      "@typescript-eslint/restrict-template-expressions": "off",
+      "@typescript-eslint/no-floating-promises": "off",
+      "@typescript-eslint/strict-void-return": "off",
+      "@typescript-eslint/class-literal-property-style": "off",
+      "@typescript-eslint/consistent-type-definitions": "off",
+      "@typescript-eslint/no-restricted-types": "off",
+      "@typescript-eslint/prefer-readonly": "off",
+      "@typescript-eslint/member-ordering": "off",
+      "n/prefer-global/process": "off",
+      "n/prefer-global/buffer": "off",
+      "max-params": "off",
+      "no-await-in-loop": "off",
+      "unicorn/no-array-callback-reference": "off",
+      "unicorn/prevent-abbreviations": "off",
+      "unicorn/no-process-exit": "off",
+      "@stylistic/curly-newline": "off",
+      "unicorn/no-immediate-mutation": "off",
+      "unicorn/no-array-sort": "off",
+      "unicorn/no-array-reverse": "off",
+      "@typescript-eslint/no-empty-function": "off",
+      "@typescript-eslint/switch-exhaustiveness-check": "off",
+      "@typescript-eslint/use-unknown-in-catch-callback-variable": "off"
+    }
+  },
+  "prettier": {
+    "singleQuote": true,
+    "bracketSpacing": true
   }
 }

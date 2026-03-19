@@ -1,10 +1,15 @@
-import { Bot } from 'grammy';
 import { randomUUID } from 'node:crypto';
 import { createWriteStream, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
+import { Bot } from 'grammy';
 import { logger } from '../utils/logger.js';
-import type { Attachment, Channel, MessageHandler, CommandHandler } from './types.js';
+import type {
+  Attachment,
+  Channel,
+  MessageHandler,
+  CommandHandler,
+} from './types.js';
 
 export class TelegramChannel implements Channel {
   readonly name = 'telegram';
@@ -65,7 +70,12 @@ export class TelegramChannel implements Channel {
 
       try {
         const file = await ctx.getFile();
-        const attachment = await this.downloadFile(file.file_id, file.file_path ?? 'voice.oga', 'audio/ogg', 'audio');
+        const attachment = await this.downloadFile(
+          file.file_id,
+          file.file_path ?? 'voice.oga',
+          'audio/ogg',
+          'audio',
+        );
         onMessage({
           channel: 'telegram',
           sender: chatId,
@@ -87,7 +97,12 @@ export class TelegramChannel implements Channel {
         const photo = ctx.message.photo.at(-1)!;
         const file = await ctx.getFile();
         const ext = file.file_path?.split('.').pop() ?? 'jpg';
-        const attachment = await this.downloadFile(file.file_id, file.file_path ?? `photo.${ext}`, `image/${ext === 'jpg' ? 'jpeg' : ext}`, 'image');
+        const attachment = await this.downloadFile(
+          file.file_id,
+          file.file_path ?? `photo.${ext}`,
+          `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+          'image',
+        );
         onMessage({
           channel: 'telegram',
           sender: chatId,
@@ -108,10 +123,17 @@ export class TelegramChannel implements Channel {
         const doc = ctx.message.document;
         const file = await ctx.getFile();
         const mimeType = doc.mime_type ?? 'application/octet-stream';
-        const attachType = mimeType.startsWith('image/') ? 'image' as const
-          : mimeType.startsWith('audio/') ? 'audio' as const
-          : 'file' as const;
-        const attachment = await this.downloadFile(file.file_id, file.file_path ?? doc.file_name ?? 'document', mimeType, attachType);
+        const attachType = mimeType.startsWith('image/')
+          ? ('image' as const)
+          : mimeType.startsWith('audio/')
+            ? ('audio' as const)
+            : ('file' as const);
+        const attachment = await this.downloadFile(
+          file.file_id,
+          file.file_path ?? doc.file_name ?? 'document',
+          mimeType,
+          attachType,
+        );
         onMessage({
           channel: 'telegram',
           sender: chatId,
@@ -123,8 +145,8 @@ export class TelegramChannel implements Channel {
       }
     });
 
-    this.bot.catch((err) => {
-      logger.error(`Telegram bot error: ${err.message}`);
+    this.bot.catch((error) => {
+      logger.error(`Telegram bot error: ${error.message}`);
     });
 
     this.bot.start();
@@ -159,7 +181,7 @@ export class TelegramChannel implements Channel {
   private handleCommand(text: string, chatId: string): boolean {
     if (!text.startsWith('/')) return false;
 
-    const parts = text.slice(1).split(/\s+/);
+    const parts = text.slice(1).split(/\s+/v);
     const command = parts[0];
     const args = parts.slice(1);
 
@@ -169,7 +191,9 @@ export class TelegramChannel implements Channel {
     }
 
     if (!this.isLinked(chatId)) {
-      logger.debug(`Dropping command /${command} from unlinked Telegram chat ${chatId}`);
+      logger.debug(
+        `Dropping command /${command} from unlinked Telegram chat ${chatId}`,
+      );
       return true;
     }
 
@@ -184,7 +208,8 @@ export class TelegramChannel implements Channel {
     type: Attachment['type'],
   ): Promise<Attachment> {
     if (!this.bot) throw new Error('Bot not started');
-    if (!this.attachmentsDir) throw new Error('Attachments directory not configured');
+    if (!this.attachmentsDir)
+      throw new Error('Attachments directory not configured');
 
     const ext = filePath.split('.').pop() ?? 'bin';
     const localName = `${randomUUID()}.${ext}`;
@@ -195,6 +220,7 @@ export class TelegramChannel implements Channel {
     if (!response.ok || !response.body) {
       throw new Error(`Failed to download file: ${response.statusText}`);
     }
+
     await pipeline(response.body, createWriteStream(localPath));
 
     logger.debug(`Downloaded Telegram ${type}: ${localPath}`);

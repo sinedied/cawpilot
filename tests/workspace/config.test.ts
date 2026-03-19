@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
+import {
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  rmSync,
+  existsSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
@@ -26,7 +32,9 @@ describe('workspace/config', () => {
   });
 
   it('returns correct paths', () => {
-    expect(getConfigPath('/workspace')).toBe('/workspace/.cawpilot/config.json');
+    expect(getConfigPath('/workspace')).toBe(
+      '/workspace/.cawpilot/config.json',
+    );
     expect(getDbPath('/workspace')).toBe('/workspace/.cawpilot/db/data.sqlite');
     expect(getSkillsPath('/workspace')).toBe('/workspace/.cawpilot/skills');
   });

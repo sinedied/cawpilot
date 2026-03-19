@@ -8,9 +8,14 @@ import { logger } from '../utils/logger.js';
  * Archive completed/failed tasks to .cawpilot/archive/TODO-YYYY-MM-DD.md
  * and remove them from the DB.
  */
-export function archiveCompletedTasks(db: Database.Database, workspacePath: string): number {
+export function archiveCompletedTasks(
+  db: Database.Database,
+  workspacePath: string,
+): number {
   const tasks = getAllTasks(db);
-  const done = tasks.filter((t) => t.status === 'completed' || t.status === 'failed');
+  const done = tasks.filter(
+    (t) => t.status === 'completed' || t.status === 'failed',
+  );
 
   if (done.length === 0) {
     logger.debug('No completed tasks to archive');
@@ -18,27 +23,36 @@ export function archiveCompletedTasks(db: Database.Database, workspacePath: stri
   }
 
   const statusIcons: Record<string, string> = {
-    'completed': '✅',
-    'failed': '❌',
+    completed: '✅',
+    failed: '❌',
   };
 
-  const archiveLines = [`# CawPilot Tasks Archive — ${new Date().toISOString().slice(0, 10)}\n`];
+  const archiveLines = [
+    `# CawPilot Tasks Archive — ${new Date().toISOString().slice(0, 10)}\n`,
+  ];
   for (const t of done) {
-    archiveLines.push(`- ${statusIcons[t.status] || '•'} ${t.title}${t.result ? ` — ${t.result}` : ''}`);
+    archiveLines.push(
+      `- ${statusIcons[t.status] || '•'} ${t.title}${t.result ? ` — ${t.result}` : ''}`,
+    );
   }
+
   archiveLines.push('');
 
   const archiveDir = join(workspacePath, '.cawpilot', 'archive');
   mkdirSync(archiveDir, { recursive: true });
 
-  const dateStr = new Date().toISOString().slice(0, 10);
-  const archivePath = join(archiveDir, `TODO-${dateStr}.md`);
+  const dateString = new Date().toISOString().slice(0, 10);
+  const archivePath = join(archiveDir, `TODO-${dateString}.md`);
 
   if (existsSync(archivePath)) {
-    const existing = readFileSync(archivePath, 'utf-8');
-    writeFileSync(archivePath, existing + '\n' + archiveLines.slice(1).join('\n'), 'utf-8');
+    const existing = readFileSync(archivePath, 'utf8');
+    writeFileSync(
+      archivePath,
+      existing + '\n' + archiveLines.slice(1).join('\n'),
+      'utf8',
+    );
   } else {
-    writeFileSync(archivePath, archiveLines.join('\n'), 'utf-8');
+    writeFileSync(archivePath, archiveLines.join('\n'), 'utf8');
   }
 
   // Remove archived tasks from DB

@@ -1,9 +1,8 @@
 import chalk from 'chalk';
-import type { Orchestrator } from '../agent/orchestrator.js';
-import { getTaskCounts } from '../db/tasks.js';
-import { getMessageCount } from '../db/messages.js';
-import { getActiveTasks } from '../db/tasks.js';
 import type Database from 'better-sqlite3';
+import type { Orchestrator } from '../agent/orchestrator.js';
+import { getTaskCounts, getActiveTasks } from '../db/tasks.js';
+import { getMessageCount } from '../db/messages.js';
 
 let notificationText = '';
 let dashboardLineCount = 0;
@@ -43,33 +42,41 @@ export function renderDashboard(
 
   // Header
   const title = ' 🐦 CawPilot';
-  lines.push(chalk.bold.cyan(title));
-  lines.push(hLine());
-
-  // Stats
-  lines.push(pad('Uptime:   ', uptime));
-  lines.push(pad('Messages: ', String(messageCount)));
-  lines.push(pad('Tasks:    ', `${chalk.yellow(String(counts['in-progress']))} active · ${chalk.green(String(counts.completed))} done · ${chalk.red(String(counts.failed))} failed`));
-  lines.push(pad('Queue:    ', `${counts.pending} pending`));
+  lines.push(
+    chalk.bold.cyan(title),
+    hLine(),
+    // Stats
+    pad('Uptime:   ', uptime),
+    pad('Messages: ', String(messageCount)),
+    pad(
+      'Tasks:    ',
+      `${chalk.yellow(String(counts['in-progress']))} active · ${chalk.green(String(counts.completed))} done · ${chalk.red(String(counts.failed))} failed`,
+    ),
+    pad('Queue:    ', `${counts.pending} pending`),
+  );
 
   // Active task names
   const active = getActiveTasks(db);
   if (active.length > 0) {
     lines.push(hLine());
     for (const t of active.slice(0, 3)) {
-      const icon = t.status === 'in-progress' ? chalk.yellow('⟳') : t.status === 'need-info' ? chalk.magenta('?') : chalk.dim('·');
-      const title = t.title.length > w - 8 ? t.title.slice(0, w - 11) + '...' : t.title;
+      const icon =
+        t.status === 'in-progress'
+          ? chalk.yellow('⟳')
+          : t.status === 'need-info'
+            ? chalk.magenta('?')
+            : chalk.dim('·');
+      const title =
+        t.title.length > w - 8 ? t.title.slice(0, w - 11) + '...' : t.title;
       lines.push(` ${icon} ${chalk.dim(title)}`);
     }
+
     if (active.length > 3) {
       lines.push(chalk.dim(`   +${active.length - 3} more`));
     }
   }
 
-  lines.push(hLine());
-
-  // Notification area (always present, blank if nothing)
-  lines.push(notificationText ? ` ${notificationText}` : '');
+  lines.push(hLine(), notificationText ? ` ${notificationText}` : '');
 
   dashboardLineCount = lines.length;
   return lines.join('\n');
@@ -83,7 +90,7 @@ export function initDashboard(
   db: Database.Database,
   startTime: Date,
 ): void {
-  process.stdout.write('\x1B[2J\x1B[H'); // clear screen, cursor home
+  process.stdout.write('\u001B[2J\u001B[H'); // Clear screen, cursor home
   const content = renderDashboard(orchestrator, db, startTime);
   process.stdout.write(content + '\n');
   process.stdout.write(chalk.green('> '));
@@ -103,12 +110,13 @@ export function refreshDashboard(
   const content = renderDashboard(orchestrator, db, startTime);
   const lines = content.split('\n');
 
-  process.stdout.write('\x1B7');       // DEC save cursor
-  process.stdout.write('\x1B[1;1H');   // move to row 1, col 1
+  process.stdout.write('\u001B7'); // DEC save cursor
+  process.stdout.write('\u001B[1;1H'); // Move to row 1, col 1
   for (const line of lines) {
-    process.stdout.write(`${line}\x1B[K\n`); // line + clear to EOL
+    process.stdout.write(`${line}\u001B[K\n`); // Line + clear to EOL
   }
-  process.stdout.write('\x1B8');       // DEC restore cursor
+
+  process.stdout.write('\u001B8'); // DEC restore cursor
 }
 
 function formatUptime(ms: number): string {

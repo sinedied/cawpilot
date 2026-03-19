@@ -3,7 +3,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { buildTools, type ToolContext } from '../../src/agent/tools.js';
 import type { Channel } from '../../src/channels/types.js';
 
-function makeChannel(name: string): Channel & { sent: { sender: string; content: string }[] } {
+function makeChannel(
+  name: string,
+): Channel & { sent: { sender: string; content: string }[] } {
   const sent: { sender: string; content: string }[] = [];
   return {
     name,
@@ -90,7 +92,10 @@ describe('agent/tools', () => {
 
       expect(result).toEqual({ sent: true, channel: 'telegram' });
       expect(tgChannel.sent).toHaveLength(1);
-      expect(tgChannel.sent[0]).toEqual({ sender: '12345', content: 'hi telegram' });
+      expect(tgChannel.sent[0]).toEqual({
+        sender: '12345',
+        content: 'hi telegram',
+      });
       expect(cliChannel.sent).toHaveLength(0);
     });
 
@@ -101,7 +106,10 @@ describe('agent/tools', () => {
         channel: 'discord',
       });
 
-      expect(result).toEqual({ sent: false, error: 'Channel "discord" not found' });
+      expect(result).toEqual({
+        sent: false,
+        error: 'Channel "discord" not found',
+      });
     });
   });
 
@@ -118,7 +126,9 @@ describe('agent/tools', () => {
 
   describe('update_task_status', () => {
     it('updates task status in database', async () => {
-      db.prepare(`INSERT INTO tasks (id, title) VALUES ('task-1', 'Test')`).run();
+      db.prepare(
+        `INSERT INTO tasks (id, title) VALUES ('task-1', 'Test')`,
+      ).run();
 
       const tools = buildTools(ctx());
       const result = await tools.update_task_status.handler({
@@ -129,7 +139,9 @@ describe('agent/tools', () => {
 
       expect(result).toEqual({ updated: true });
 
-      const row = db.prepare('SELECT status, result FROM tasks WHERE id = ?').get('task-1') as {
+      const row = db
+        .prepare('SELECT status, result FROM tasks WHERE id = ?')
+        .get('task-1') as {
         status: string;
         result: string;
       };

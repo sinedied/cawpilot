@@ -4,8 +4,12 @@ import { mkdirSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
-import { createTask, updateTaskStatus, getAllTasks } from '../../src/db/tasks.js';
-import { archiveCompletedTasks } from '../../src/agent/cleanup.js';
+import {
+  createTask,
+  updateTaskStatus,
+  getAllTasks,
+} from '../../src/db/tasks.js';
+import { archiveCompletedTasks } from '../../src/workspace/cleanup.js';
 
 function createTestDb(): Database.Database {
   const db = new Database(':memory:');
@@ -89,7 +93,12 @@ describe('cleanup: archiveCompletedTasks', () => {
     archiveCompletedTasks(db, tmpDir);
 
     const dateStr = new Date().toISOString().slice(0, 10);
-    const archivePath = join(tmpDir, '.cawpilot', 'archive', `TODO-${dateStr}.md`);
+    const archivePath = join(
+      tmpDir,
+      '.cawpilot',
+      'archive',
+      `TODO-${dateStr}.md`,
+    );
     const content = readFileSync(archivePath, 'utf-8');
 
     expect(content).toContain('First batch');

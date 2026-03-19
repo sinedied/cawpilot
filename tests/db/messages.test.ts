@@ -56,7 +56,9 @@ describe('db/messages', () => {
   });
 
   it('creates a message with attachments', () => {
-    const msg = createMessage(db, 'telegram', 'user1', 'check this', ['file.jpg']);
+    const msg = createMessage(db, 'telegram', 'user1', 'check this', [
+      'file.jpg',
+    ]);
     expect(msg.attachments).toEqual(['file.jpg']);
   });
 

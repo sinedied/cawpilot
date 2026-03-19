@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { Command } from 'commander';
 import { resolve } from 'node:path';
+import { Command } from 'commander';
 import { runSetup } from './cli/setup.js';
 import { runStart } from './cli/start.js';
 import { runDoctor } from './cli/doctor.js';
@@ -17,6 +17,7 @@ process.on('uncaughtException', (error) => {
   if (error.name === 'ExitPromptError') {
     process.exit(0);
   }
+
   throw error;
 });
 

@@ -4,10 +4,29 @@ import { mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
-import { createMessage, getUnprocessedMessages, getMessagesByTask, markMessagesProcessing } from '../../src/db/messages.js';
-import { createTask, updateTaskStatus, getActiveTasks, getTaskById } from '../../src/db/tasks.js';
-import { createScheduledTask, getDueScheduledTasks, updateScheduledTaskRun, getAllScheduledTasks } from '../../src/db/scheduled.js';
-import { saveConfig, loadConfig, type CawpilotConfig } from '../../src/workspace/config.js';
+import {
+  createMessage,
+  getUnprocessedMessages,
+  getMessagesByTask,
+  markMessagesProcessing,
+} from '../../src/db/messages.js';
+import {
+  createTask,
+  updateTaskStatus,
+  getActiveTasks,
+  getTaskById,
+} from '../../src/db/tasks.js';
+import {
+  createScheduledTask,
+  getDueScheduledTasks,
+  updateScheduledTaskRun,
+  getAllScheduledTasks,
+} from '../../src/db/scheduled.js';
+import {
+  saveConfig,
+  loadConfig,
+  type CawpilotConfig,
+} from '../../src/workspace/config.js';
 import { ensureWorkspace } from '../../src/workspace/manager.js';
 
 /**
@@ -93,7 +112,12 @@ describe('integration: message → task pipeline', () => {
     let active = getActiveTasks(db);
     expect(active).toHaveLength(1);
 
-    updateTaskStatus(db, task.id, 'completed', 'PR created: https://github.com/...');
+    updateTaskStatus(
+      db,
+      task.id,
+      'completed',
+      'PR created: https://github.com/...',
+    );
     active = getActiveTasks(db);
     expect(active).toHaveLength(0);
 
@@ -139,7 +163,12 @@ describe('integration: workspace config round-trip', () => {
 
     const config: CawpilotConfig = {
       channels: [
-        { type: 'telegram', enabled: true, telegramToken: 'tok', allowList: ['123'] },
+        {
+          type: 'telegram',
+          enabled: true,
+          telegramToken: 'tok',
+          allowList: ['123'],
+        },
         { type: 'http', enabled: true, httpPort: 4000, httpApiKey: 'key123' },
       ],
       repos: ['owner/repo1', 'owner/repo2'],
@@ -147,7 +176,11 @@ describe('integration: workspace config round-trip', () => {
       maxConcurrency: 4,
       contextMessagesCount: 10,
       cleanupIntervalDays: 7,
-      persistence: { enabled: true, repo: 'user/my-cawpilot', backupIntervalDays: 1 },
+      persistence: {
+        enabled: true,
+        repo: 'user/my-cawpilot',
+        backupIntervalDays: 1,
+      },
       model: 'claude-sonnet-4.5',
       workspacePath: tmpDir,
     };
@@ -173,7 +206,12 @@ describe('integration: scheduled task lifecycle', () => {
   });
 
   it('creates scheduled task, runs it, schedules next run', () => {
-    const task = createScheduledTask(db, 'Daily standup', '1440', 'Give standup summary');
+    const task = createScheduledTask(
+      db,
+      'Daily standup',
+      '1440',
+      'Give standup summary',
+    );
 
     // Initially due (next_run is null)
     let due = getDueScheduledTasks(db);

@@ -2,22 +2,22 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { logger } from '../utils/logger.js';
 
-export interface ProviderConfig {
+export type ProviderConfig = {
   type: 'openai' | 'azure' | 'anthropic';
   baseUrl: string;
   apiKey?: string;
-}
+};
 
-export interface ChannelConfig {
+export type ChannelConfig = {
   type: 'telegram' | 'http';
   enabled: boolean;
   telegramToken?: string;
   httpPort?: number;
   httpApiKey?: string;
   allowList?: string[];
-}
+};
 
-export interface CawpilotConfig {
+export type CawpilotConfig = {
   channels: ChannelConfig[];
   repos: string[];
   skills: string[];
@@ -32,7 +32,7 @@ export interface CawpilotConfig {
   provider?: ProviderConfig;
   model: string;
   workspacePath: string;
-}
+};
 
 const DEFAULT_CONFIG: CawpilotConfig = {
   channels: [],
@@ -79,14 +79,15 @@ export function getAttachmentsPath(workspacePath: string): string {
  * These are attached to task sessions for personality and user context.
  */
 export function getContextFiles(workspacePath: string): string[] {
-  return [getSoulPath(workspacePath), getUserPath(workspacePath)]
-    .filter((p) => existsSync(p));
+  return [getSoulPath(workspacePath), getUserPath(workspacePath)].filter((p) =>
+    existsSync(p),
+  );
 }
 
 export function loadSoul(workspacePath: string): string | undefined {
   const soulPath = getSoulPath(workspacePath);
   if (!existsSync(soulPath)) return undefined;
-  return readFileSync(soulPath, 'utf-8');
+  return readFileSync(soulPath, 'utf8');
 }
 
 export function loadConfig(workspacePath: string): CawpilotConfig {
@@ -96,7 +97,7 @@ export function loadConfig(workspacePath: string): CawpilotConfig {
     return { ...DEFAULT_CONFIG, workspacePath };
   }
 
-  const raw = readFileSync(configPath, 'utf-8');
+  const raw = readFileSync(configPath, 'utf8');
   const parsed = JSON.parse(raw) as Partial<CawpilotConfig>;
   const config = { ...DEFAULT_CONFIG, ...parsed, workspacePath };
   logger.debug(`Config loaded from ${configPath}`);
@@ -108,7 +109,7 @@ export function saveConfig(config: CawpilotConfig): void {
   mkdirSync(dirname(configPath), { recursive: true });
 
   const { workspacePath: _, ...toSave } = config;
-  writeFileSync(configPath, JSON.stringify(toSave, null, 2) + '\n', 'utf-8');
+  writeFileSync(configPath, JSON.stringify(toSave, null, 2) + '\n', 'utf8');
   logger.info(`Config saved to ${configPath}`);
 }
 

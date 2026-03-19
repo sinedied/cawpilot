@@ -2,10 +2,16 @@
 // The @github/copilot-sdk imports "vscode-jsonrpc/node" (no .js extension),
 // but vscode-jsonrpc lacks an exports field, causing ERR_MODULE_NOT_FOUND
 // under Node's strict ESM resolver.
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
-const pkgPath = path.join(__dirname, '..', 'node_modules', 'vscode-jsonrpc', 'package.json');
+const pkgPath = path.join(
+  __dirname,
+  '..',
+  'node_modules',
+  'vscode-jsonrpc',
+  'package.json',
+);
 try {
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
   if (!pkg.exports) {
