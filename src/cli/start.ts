@@ -291,12 +291,16 @@ export async function runStart(
     logger.debug(`Message received from ${msg.channel}/${msg.sender}`);
   };
 
-  for (const [name, channel] of channels) {
-    try {
+  const startResults = await Promise.allSettled(
+    [...channels.entries()].map(async ([name, channel]) => {
       await channel.start(messageHandler);
       logger.info(`Channel started: ${name}`);
-    } catch (error) {
-      logger.error(`Failed to start channel ${name}: ${error}`);
+    }),
+  );
+  for (const [i, result] of startResults.entries()) {
+    if (result.status === 'rejected') {
+      const name = [...channels.keys()][i];
+      logger.error(`Failed to start channel ${name}: ${result.reason}`);
     }
   }
 
@@ -328,12 +332,18 @@ export async function runStart(
     if (dashboardInterval) clearInterval(dashboardInterval);
     orchestrator.stop();
 
-    for (const [name, channel] of channels) {
-      try {
+    const channelEntries = [...channels.entries()];
+    const stopResults = await Promise.allSettled(
+      channelEntries.map(async ([name, channel]) => {
         await channel.stop();
         logger.debug(`Channel stopped: ${name}`);
-      } catch (error) {
-        logger.error(`Error stopping channel ${name}: ${error}`);
+      }),
+    );
+    for (const [i, result] of stopResults.entries()) {
+      if (result.status === 'rejected') {
+        logger.error(
+          `Error stopping channel ${channelEntries[i][0]}: ${result.reason}`,
+        );
       }
     }
 

@@ -33,8 +33,8 @@ describe('db/tasks', () => {
     expect(task.id).toBeDefined();
     expect(task.title).toBe('Fix the bug');
     expect(task.status).toBe('pending');
-    expect(task.result).toBeNull();
-    expect(task.sessionId).toBeNull();
+    expect(task.result).toBeUndefined();
+    expect(task.sessionId).toBeUndefined();
   });
 
   it('updates task status', () => {

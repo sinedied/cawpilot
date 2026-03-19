@@ -12,10 +12,12 @@ export type Message = {
   content: string;
   attachments: Attachment[];
   status: 'unprocessed' | 'processing' | 'processed';
-  taskId: string | null;
+  taskId: string | undefined;
   createdAt: string;
 };
 
+// SQLite returns null for missing values
+/* eslint-disable @typescript-eslint/no-restricted-types */
 type MessageRow = {
   id: string;
   channel: string;
@@ -27,6 +29,7 @@ type MessageRow = {
   task_id: string | null;
   created_at: string;
 };
+/* eslint-enable @typescript-eslint/no-restricted-types */
 
 function rowToMessage(row: MessageRow): Message {
   return {
@@ -37,7 +40,7 @@ function rowToMessage(row: MessageRow): Message {
     content: row.content,
     attachments: JSON.parse(row.attachments) as Attachment[],
     status: row.status as Message['status'],
-    taskId: row.task_id,
+    taskId: row.task_id ?? undefined,
     createdAt: row.created_at,
   };
 }
@@ -65,7 +68,7 @@ export function createMessage(
     content,
     attachments,
     status: 'unprocessed',
-    taskId: null,
+    taskId: undefined,
     createdAt: new Date().toISOString(),
   };
 }
@@ -93,7 +96,7 @@ export function createBotMessage(
     content,
     attachments: [],
     status: 'processed',
-    taskId: taskId ?? null,
+    taskId,
     createdAt: new Date().toISOString(),
   };
 }

@@ -69,15 +69,13 @@
       "@typescript-eslint/no-unsafe-type-assertion": "off",
       "@typescript-eslint/naming-convention": "off",
       "@typescript-eslint/restrict-template-expressions": "off",
-      "@typescript-eslint/class-literal-property-style": "off",
-      "@typescript-eslint/no-restricted-types": "off",
       "@typescript-eslint/member-ordering": "off",
-      "max-params": "off",
-      "no-await-in-loop": "off",
-      "unicorn/no-array-callback-reference": "off",
       "unicorn/prevent-abbreviations": "off",
       "unicorn/no-process-exit": "off",
+      "max-params": ["error", 5],
+      "unicorn/no-array-callback-reference": "off",
       "@stylistic/curly-newline": "off",
+      "@typescript-eslint/class-literal-property-style": "off",
       "@typescript-eslint/no-empty-function": "off"
     }
   },

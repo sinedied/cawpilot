@@ -7,11 +7,13 @@ export type ScheduledTask = {
   schedule: string;
   prompt: string;
   enabled: boolean;
-  lastRun: string | null;
-  nextRun: string | null;
+  lastRun: string | undefined;
+  nextRun: string | undefined;
   createdAt: string;
 };
 
+// SQLite returns null for missing values
+/* eslint-disable @typescript-eslint/no-restricted-types */
 type ScheduledTaskRow = {
   id: string;
   name: string;
@@ -22,6 +24,7 @@ type ScheduledTaskRow = {
   next_run: string | null;
   created_at: string;
 };
+/* eslint-enable @typescript-eslint/no-restricted-types */
 
 function rowToScheduledTask(row: ScheduledTaskRow): ScheduledTask {
   return {
@@ -30,8 +33,8 @@ function rowToScheduledTask(row: ScheduledTaskRow): ScheduledTask {
     schedule: row.schedule,
     prompt: row.prompt,
     enabled: row.enabled === 1,
-    lastRun: row.last_run,
-    nextRun: row.next_run,
+    lastRun: row.last_run ?? undefined,
+    nextRun: row.next_run ?? undefined,
     createdAt: row.created_at,
   };
 }
@@ -56,8 +59,8 @@ export function createScheduledTask(
     schedule,
     prompt,
     enabled: true,
-    lastRun: null,
-    nextRun: null,
+    lastRun: undefined,
+    nextRun: undefined,
     createdAt: new Date().toISOString(),
   };
 }

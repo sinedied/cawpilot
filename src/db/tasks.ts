@@ -12,12 +12,14 @@ export type Task = {
   id: string;
   status: TaskStatus;
   title: string;
-  result: string | null;
-  sessionId: string | null;
+  result: string | undefined;
+  sessionId: string | undefined;
   createdAt: string;
   updatedAt: string;
 };
 
+// SQLite returns null for missing values
+/* eslint-disable @typescript-eslint/no-restricted-types */
 type TaskRow = {
   id: string;
   status: string;
@@ -27,14 +29,15 @@ type TaskRow = {
   created_at: string;
   updated_at: string;
 };
+/* eslint-enable @typescript-eslint/no-restricted-types */
 
 function rowToTask(row: TaskRow): Task {
   return {
     id: row.id,
     status: row.status as TaskStatus,
     title: row.title,
-    result: row.result,
-    sessionId: row.session_id,
+    result: row.result ?? undefined,
+    sessionId: row.session_id ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -54,8 +57,8 @@ export function createTask(db: Database.Database, title: string): Task {
     id,
     status: 'pending',
     title,
-    result: null,
-    sessionId: null,
+    result: undefined,
+    sessionId: undefined,
     createdAt: now,
     updatedAt: now,
   };

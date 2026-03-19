@@ -52,7 +52,7 @@ describe('db/messages', () => {
     expect(msg.content).toBe('hello');
     expect(msg.attachments).toEqual([]);
     expect(msg.status).toBe('unprocessed');
-    expect(msg.taskId).toBeNull();
+    expect(msg.taskId).toBeUndefined();
   });
 
   it('creates a message with attachments', () => {
@@ -126,7 +126,7 @@ describe('db/messages', () => {
   it('creates a bot message without task ID', () => {
     const msg = createBotMessage(db, 'cli', 'local', 'hi');
     expect(msg.role).toBe('assistant');
-    expect(msg.taskId).toBeNull();
+    expect(msg.taskId).toBeUndefined();
   });
 
   it('retrieves recent history in chronological order', () => {

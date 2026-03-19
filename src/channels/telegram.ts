@@ -170,11 +170,17 @@ export class TelegramChannel implements Channel {
     if (sender && this.isLinked(sender)) {
       await this.bot.api.sendMessage(sender, content);
     } else {
-      for (const chatId of this.allowList) {
-        try {
-          await this.bot.api.sendMessage(chatId, content);
-        } catch (error) {
-          logger.error(`Failed to send to Telegram chat ${chatId}: ${error}`);
+      const chatIds = [...this.allowList];
+      const results = await Promise.allSettled(
+        chatIds.map(async (chatId) =>
+          this.bot!.api.sendMessage(chatId, content),
+        ),
+      );
+      for (const [i, result] of results.entries()) {
+        if (result.status === 'rejected') {
+          logger.error(
+            `Failed to send to Telegram chat ${chatIds[i]}: ${result.reason}`,
+          );
         }
       }
     }

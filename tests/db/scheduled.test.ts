@@ -34,8 +34,8 @@ describe('db/scheduled', () => {
     expect(task.schedule).toBe('60');
     expect(task.prompt).toBe('Run standup');
     expect(task.enabled).toBe(true);
-    expect(task.lastRun).toBeNull();
-    expect(task.nextRun).toBeNull();
+    expect(task.lastRun).toBeUndefined();
+    expect(task.nextRun).toBeUndefined();
   });
 
   it('returns due scheduled tasks (next_run is null)', () => {
