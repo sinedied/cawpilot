@@ -120,6 +120,7 @@ async function setupChannels(existing: ChannelConfig[]): Promise<ChannelConfig[]
     const token = await input({
       message: 'Telegram Bot Token (from BotFather):',
       default: existingTg?.telegramToken ?? '',
+      transformer: (value) => value ? '•'.repeat(Math.min(value.length, 20)) : '',
     });
     channels.push({
       type: 'telegram',
@@ -142,7 +143,7 @@ async function setupChannels(existing: ChannelConfig[]): Promise<ChannelConfig[]
       httpPort: parseInt(port, 10),
       httpApiKey: apiKey,
     });
-    console.log(chalk.dim(`  HTTP API Key: ${chalk.bold(apiKey)}`));
+    console.log(chalk.dim('  HTTP API Key: <see .cawpilot/config.json>'));
     console.log(chalk.dim('  Use this key in the X-Api-Key header for requests.'));
   }
 
