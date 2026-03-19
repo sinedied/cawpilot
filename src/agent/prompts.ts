@@ -19,7 +19,6 @@ export function buildTaskSystemPrompt(options: {
   taskTitle: string;
   taskId: string;
   messageContext?: string;
-  soul?: string;
 }): string {
   const parts: string[] = [];
 
@@ -40,11 +39,9 @@ Task ID: ${options.taskId}`);
 - When done, update the task status to 'completed' with a summary
 - If you need more info, update status to 'need-info' and ask the user via send_message
 - If you make code changes, create a branch (cp-* prefix enforced) and a pull request
+- Follow the personality and style guidelines from the attached SOUL.md file
+- Refer to USER.md for context about the user you're working with
 `);
-
-  if (options.soul) {
-    parts.push(`\n${options.soul}`);
-  }
 
   return parts.join('\n');
 }

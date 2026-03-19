@@ -3,7 +3,7 @@ import type { CopilotSession } from '@github/copilot-sdk';
 import { getSkillsPath } from '../../workspace/config.js';
 import { buildTools, type ToolContext } from '../tools.js';
 import { logger } from '../../utils/logger.js';
-import type { AgentProvider, AgentSession, AgentModel, SessionOptions } from '../provider.js';
+import type { AgentProvider, AgentSession, AgentModel, SessionOptions, SendOptions } from '../provider.js';
 
 class CopilotAgentSession implements AgentSession {
   readonly sessionId: string;
@@ -13,7 +13,7 @@ class CopilotAgentSession implements AgentSession {
   }
 
   async send(
-    options: { prompt: string },
+    options: SendOptions,
   ): Promise<{ data?: { content?: string } } | undefined> {
     return new Promise((resolve, reject) => {
       let lastMessage: { data?: { content?: string } } | undefined;
@@ -38,7 +38,7 @@ class CopilotAgentSession implements AgentSession {
   }
 
   async sendAndWait(
-    options: { prompt: string },
+    options: SendOptions,
     timeout?: number,
   ): Promise<{ data?: { content?: string } } | undefined> {
     const result = await this.session.sendAndWait(options, timeout);

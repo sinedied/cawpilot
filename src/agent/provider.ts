@@ -10,6 +10,17 @@ export interface AgentModel {
   name: string;
 }
 
+export interface MessageAttachment {
+  type: 'file';
+  path: string;
+  displayName?: string;
+}
+
+export interface SendOptions {
+  prompt: string;
+  attachments?: MessageAttachment[];
+}
+
 /**
  * A single conversation session with the agent.
  */
@@ -18,23 +29,13 @@ export interface AgentSession {
 
   /**
    * Send a prompt and wait for the session to become idle, with no timeout.
-   * @param options - prompt and optional attachments
-   * @returns the final assistant message, or undefined
    */
-  send(
-    options: { prompt: string },
-  ): Promise<{ data?: { content?: string } } | undefined>;
+  send(options: SendOptions): Promise<{ data?: { content?: string } } | undefined>;
 
   /**
    * Send a prompt and wait for idle with a timeout.
-   * @param options - prompt and optional attachments
-   * @param timeout - timeout in ms
-   * @returns the final assistant message, or undefined
    */
-  sendAndWait(
-    options: { prompt: string },
-    timeout?: number,
-  ): Promise<{ data?: { content?: string } } | undefined>;
+  sendAndWait(options: SendOptions, timeout?: number): Promise<{ data?: { content?: string } } | undefined>;
 
   /**
    * Subscribe to session events.

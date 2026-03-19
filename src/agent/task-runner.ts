@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 import type { CawpilotConfig } from '../workspace/config.js';
-import { loadSoul } from '../workspace/config.js';
+import { getContextFiles } from '../workspace/config.js';
 import type { Channel } from '../channels/types.js';
 import { getMessagesByTask } from '../db/messages.js';
 import { updateTaskStatus, setTaskSessionId, type Task } from '../db/tasks.js';
@@ -29,14 +29,13 @@ export async function runTask(
     .map((m) => `[${m.channel}/${m.sender}] ${m.content}`)
     .join('\n');
 
-  const soul = loadSoul(config.workspacePath);
+  const contextFiles = getContextFiles(config.workspacePath);
   const systemPrompt = buildTaskSystemPrompt({
     workspacePath: config.workspacePath,
     repos: config.repos,
     taskTitle: task.title,
     taskId: task.id,
     messageContext,
-    soul,
   });
 
   try {
@@ -57,6 +56,7 @@ export async function runTask(
 
     await session.send({
       prompt: `Process this task: ${task.title}\n\nContext:\n${messageContext}`,
+      attachments: contextFiles.map((p) => ({ type: 'file' as const, path: p })),
     });
 
     await session.disconnect();

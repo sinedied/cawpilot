@@ -64,6 +64,19 @@ export function getSoulPath(workspacePath: string): string {
   return join(workspacePath, '.cawpilot', 'SOUL.md');
 }
 
+export function getUserPath(workspacePath: string): string {
+  return join(workspacePath, '.cawpilot', 'USER.md');
+}
+
+/**
+ * Returns paths to context files (SOUL.md, USER.md) that exist in the workspace.
+ * These are attached to task sessions for personality and user context.
+ */
+export function getContextFiles(workspacePath: string): string[] {
+  return [getSoulPath(workspacePath), getUserPath(workspacePath)]
+    .filter((p) => existsSync(p));
+}
+
 export function loadSoul(workspacePath: string): string | undefined {
   const soulPath = getSoulPath(workspacePath);
   if (!existsSync(soulPath)) return undefined;

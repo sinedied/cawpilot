@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import { writeFileSync, readFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CawpilotConfig } from '../workspace/config.js';
-import { loadSoul } from '../workspace/config.js';
+import { getContextFiles } from '../workspace/config.js';
 import type { Channel } from '../channels/types.js';
 import { getUnprocessedMessages, markMessagesProcessing, getRecentHistory } from '../db/messages.js';
 import { createTask, getActiveTasks, getAllTasks, type Task } from '../db/tasks.js';
@@ -198,11 +198,14 @@ export class Orchestrator {
           repos: this.config.repos,
           taskTitle: task.title,
           taskId: task.id,
-          soul: loadSoul(this.config.workspacePath),
         }),
       });
 
-      await session.send({ prompt });
+      const contextFiles = getContextFiles(this.config.workspacePath);
+      await session.send({
+        prompt,
+        attachments: contextFiles.map((p) => ({ type: 'file' as const, path: p })),
+      });
       await session.disconnect();
       this._processedCount++;
     } catch (error) {
