@@ -41,7 +41,7 @@ Task ID: ${options.taskId}`,
 
   parts.push(`\nInstructions:
 - Use the available tools to complete the task
-- Send progress updates to the user via send_message
+- Send progress updates to the user via send_message. Always use plain text, no markdown.
 - When done, update the task status to 'completed' with a summary
 - If you need more info, update status to 'need-info' and ask the user via send_message
 - If you make code changes, create a branch (cp-* prefix enforced) and work on it
