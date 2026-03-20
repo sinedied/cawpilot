@@ -52,7 +52,7 @@ export async function runBootstrap(
   const task = createTask(db, 'Bootstrap: customize agent behavior');
   markMessagesProcessing(db, [msg.id], task.id);
 
-  await runTask(task, config, db, channels);
+  await runTask({ task, config, db, channels });
 
   setNotification(chalk.green('✅ Bootstrap complete'));
   logger.info('Bootstrap completed');

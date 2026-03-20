@@ -53,7 +53,7 @@ export async function handleStatusCommand(
 
   lines.push(
     '',
-    `📅 Scheduled: ${scheduled.length} total, ${enabledScheduled} enabled`
+    `📅 Scheduled: ${scheduled.length} total, ${enabledScheduled} enabled`,
   );
 
   await channel.send(sender, lines.join('\n'));

@@ -18,7 +18,7 @@ export class TelegramChannel implements Channel {
   private readonly allowList: Set<string>;
   private commandHandler: CommandHandler | undefined;
   private attachmentsDir: string | undefined;
-  private pendingInputs = new Map<string, (value: string) => void>();
+  private readonly pendingInputs = new Map<string, (value: string) => void>();
 
   constructor(
     private readonly token: string,

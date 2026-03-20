@@ -15,6 +15,61 @@ export type CommandContext = {
   startTime: number;
 };
 
+async function handleScheduleCommand(
+  channelName: string,
+  sender: string,
+  ctx: CommandContext,
+): Promise<void> {
+  const { getAllScheduledTasks } = await import('../db/scheduled.js');
+  const scheduled = getAllScheduledTasks(ctx.db);
+  const channel = ctx.channels.get(channelName);
+  if (!channel) return;
+
+  if (scheduled.length === 0) {
+    await channel.send(sender, 'No scheduled tasks configured.');
+    return;
+  }
+
+  const lines = ['📅 Scheduled Tasks\n'];
+  for (const t of scheduled) {
+    const status = t.enabled ? '✅ enabled' : '⏸️ disabled';
+    const lastRun = t.lastRun ? new Date(t.lastRun).toLocaleString() : 'never';
+    const nextRun = t.nextRun
+      ? new Date(t.nextRun).toLocaleString()
+      : 'pending';
+    lines.push(
+      `• ${t.name} — ${status}`,
+      `  Schedule: every ${t.schedule} min | Last: ${lastRun} | Next: ${nextRun}`,
+    );
+  }
+
+  await channel.send(sender, lines.join('\n'));
+}
+
+async function handleBackupCommand(
+  channelName: string,
+  sender: string,
+  ctx: CommandContext,
+): Promise<void> {
+  const channel = ctx.channels.get(channelName);
+  if (!channel) return;
+
+  if (!ctx.config.persistence.enabled) {
+    await channel.send(
+      sender,
+      '⚠️ Persistence is not enabled. Run `cawpilot setup` to enable it.',
+    );
+    return;
+  }
+
+  const { runBackup } = await import('../workspace/persistence.js');
+  const result = runBackup(ctx.config);
+  await channel.send(
+    sender,
+    result.success ? `✅ ${result.message}` : `❌ ${result.message}`,
+  );
+}
+
 export async function handleCommand(
   command: string,
   channelName: string,
@@ -60,53 +115,12 @@ export async function handleCommand(
     }
 
     case 'schedule': {
-      const { getAllScheduledTasks } = await import('../db/scheduled.js');
-      const scheduled = getAllScheduledTasks(ctx.db);
-      const channel = ctx.channels.get(channelName);
-      if (!channel) break;
-
-      if (scheduled.length === 0) {
-        await channel.send(sender, 'No scheduled tasks configured.');
-        break;
-      }
-
-      const lines = ['📅 Scheduled Tasks\n'];
-      for (const t of scheduled) {
-        const status = t.enabled ? '✅ enabled' : '⏸️ disabled';
-        const lastRun = t.lastRun
-          ? new Date(t.lastRun).toLocaleString()
-          : 'never';
-        const nextRun = t.nextRun
-          ? new Date(t.nextRun).toLocaleString()
-          : 'pending';
-        lines.push(
-          `• ${t.name} — ${status}`,
-          `  Schedule: every ${t.schedule} min | Last: ${lastRun} | Next: ${nextRun}`,
-        );
-      }
-
-      await channel.send(sender, lines.join('\n'));
+      await handleScheduleCommand(channelName, sender, ctx);
       break;
     }
 
     case 'backup': {
-      const channel = ctx.channels.get(channelName);
-      if (!channel) break;
-
-      if (!ctx.config.persistence.enabled) {
-        await channel.send(
-          sender,
-          '⚠️ Persistence is not enabled. Run `cawpilot setup` to enable it.',
-        );
-        break;
-      }
-
-      const { runBackup } = await import('../workspace/persistence.js');
-      const result = runBackup(ctx.config);
-      await channel.send(
-        sender,
-        result.success ? `✅ ${result.message}` : `❌ ${result.message}`,
-      );
+      await handleBackupCommand(channelName, sender, ctx);
       break;
     }
 
@@ -123,7 +137,10 @@ export async function handleCommand(
     default: {
       const channel = ctx.channels.get(channelName);
       if (channel) {
-        await channel.send(sender, `Unknown command: /${command}. Use /help to see available commands.`);
+        await channel.send(
+          sender,
+          `Unknown command: /${command}. Use /help to see available commands.`,
+        );
       }
     }
   }

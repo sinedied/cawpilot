@@ -21,7 +21,7 @@ export class HttpChannel implements Channel {
   private server: Server | undefined;
   private onMessage: MessageHandler | undefined;
   private attachmentsDir: string | undefined;
-  private pendingInputs = new Map<string, (value: string) => void>();
+  private readonly pendingInputs = new Map<string, (value: string) => void>();
 
   constructor(
     private readonly port = 3000,

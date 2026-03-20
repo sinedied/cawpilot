@@ -28,11 +28,15 @@ import {
 import { setNotification } from '../cli/dashboard.js';
 import { logger } from '../utils/logger.js';
 import { archiveCompletedTasks } from '../workspace/cleanup.js';
-import { TRIAGE_SYSTEM_PROMPT, TASK_SYSTEM_PROMPT, buildTaskPrompt } from './prompts.js';
+import type { AgentSession } from '../providers/provider.js';
+import {
+  TRIAGE_SYSTEM_PROMPT,
+  TASK_SYSTEM_PROMPT,
+  buildTaskPrompt,
+} from './prompts.js';
 import { buildTools, type ToolContext } from './tools.js';
 import { createTaskSession } from './runtime.js';
 import { runTask } from './task-runner.js';
-import type { AgentSession } from '../providers/provider.js';
 
 const POLL_INTERVAL_MS = 5000;
 const SCHEDULER_INTERVAL_MS = 60_000;
@@ -83,7 +87,9 @@ export class Orchestrator {
     updateTaskStatus(this.db, taskId, 'cancelled', 'Cancelled by user');
     this.runningTasks.delete(taskId);
     logger.info(`Task ${taskId} cancelled`);
-    setNotification(chalk.yellow(`🚫 Task cancelled: ${task.title.slice(0, 40)}`));
+    setNotification(
+      chalk.yellow(`🚫 Task cancelled: ${task.title.slice(0, 40)}`),
+    );
     return true;
   }
 
@@ -188,18 +194,25 @@ export class Orchestrator {
    * Includes recent history (user + bot messages across tasks),
    * the task's own messages, and any explicitly referenced messages.
    */
-  private buildConversationContext(taskId: string, extraMessageIds?: string[]): string {
+  private buildConversationContext(
+    taskId: string,
+    extraMessageIds?: string[],
+  ): string {
     const history = getRecentHistory(this.db, this.config.contextMessagesCount);
     const taskMessages = getMessagesByTask(this.db, taskId);
-    const extraMessages = extraMessageIds ? getMessagesByIds(this.db, extraMessageIds) : [];
+    const extraMessages = extraMessageIds
+      ? getMessagesByIds(this.db, extraMessageIds)
+      : [];
 
     // Merge all sources, deduplicating by ID, preserving chronological order
     const seen = new Set<string>();
-    const allMessages = [...extraMessages, ...history, ...taskMessages].filter((m) => {
-      if (seen.has(m.id)) return false;
-      seen.add(m.id);
-      return true;
-    });
+    const allMessages = [...extraMessages, ...history, ...taskMessages].filter(
+      (m) => {
+        if (seen.has(m.id)) return false;
+        seen.add(m.id);
+        return true;
+      },
+    );
 
     // Sort chronologically
     allMessages.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
@@ -213,7 +226,14 @@ export class Orchestrator {
     setNotification(chalk.yellow(`⟳ Working on: ${task.title.slice(0, 40)}`));
 
     const context = this.buildConversationContext(task.id, contextMessageIds);
-    const taskPromise = runTask(task, this.config, this.db, this.channels, this, context)
+    const taskPromise = runTask({
+      task,
+      config: this.config,
+      db: this.db,
+      channels: this.channels,
+      orchestrator: this,
+      context,
+    })
       .then(() => {
         this._processedCount++;
         setNotification(
@@ -235,7 +255,9 @@ export class Orchestrator {
 
   private async triageMessages(
     messages: ReturnType<typeof getUnprocessedMessages>,
-  ): Promise<Array<{ title: string; messageIds: string[]; contextMessageIds?: string[] }>> {
+  ): Promise<
+    Array<{ title: string; messageIds: string[]; contextMessageIds?: string[] }>
+  > {
     // Fetch recent history for context
     const history = getRecentHistory(this.db, this.config.contextMessagesCount);
     const historyContext =
@@ -265,7 +287,10 @@ export class Orchestrator {
         const limit = Math.min(count, 100);
         const allHistory = getRecentHistory(this.db, fetchedCount + limit);
         // Return only the older messages not already provided
-        const olderMessages = allHistory.slice(0, allHistory.length - fetchedCount);
+        const olderMessages = allHistory.slice(
+          0,
+          allHistory.length - fetchedCount,
+        );
         fetchedCount += olderMessages.length;
         return {
           messages: olderMessages.map((m) => ({

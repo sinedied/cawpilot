@@ -88,6 +88,7 @@ npm start            # Run compiled output
 npm test             # Run tests (vitest)
 npm run test:watch   # Run tests in watch mode
 npm run clean        # Remove dist/
+npm run lint         # Lint source files (xo)
 ```
 
 ### Running locally
@@ -129,6 +130,7 @@ npx tsx src/index.ts doctor
 - **Config types**: All configuration shapes defined in `workspace/config.ts`
 - **Database**: All SQL in the `db/` module; other modules use the typed functions exported from there
 - **Channel interface**: All channels implement the `Channel` interface from `channels/types.ts`. Channels support cross-channel messaging via the `send_message` tool.
+- **Linting**: xo (ESLint + Prettier) via `npm run lint`. All code changes must pass lint before committing.
 - **Testing**: Tests in `tests/` mirror `src/` structure. Use in-memory SQLite for DB tests. Use vitest.
 - **No hardcoded branding in bot responses** — The agent's identity comes from `SOUL.md`, not from hardcoded "CawPilot" strings. Never include "CawPilot", product names, or branded prefixes/headers (e.g. `🤖 **CawPilot Status**`) in messages sent to users, task results, archive files, or prompts. The only places where "CawPilot" may appear are: CLI setup/onboarding, the dashboard UI, and doctor diagnostics. Internal type names (e.g. `CawpilotConfig`) and `.cawpilot/` paths are fine.
 
@@ -166,6 +168,7 @@ When building new features or refactoring:
 1. Identify the domain (`agent/`, `channels/`, `db/`, `cli/`, `workspace/`)
 2. Create or modify files within that domain
 3. Ensure all imports use `.js` extensions
-4. Run `npm run build` to verify compilation
-5. Test locally with `npx tsx src/index.ts <command>`
-6. Update AGENTS.md and README.md if the change affects architecture, commands, or configuration
+4. Run `npm run lint` to check for lint errors and fix any issues
+5. Run `npm run build` to verify compilation
+6. Test locally with `npx tsx src/index.ts <command>`
+7. Update AGENTS.md and README.md if the change affects architecture, commands, or configuration

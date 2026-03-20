@@ -14,14 +14,23 @@ import { TASK_SYSTEM_PROMPT, buildTaskPrompt } from './prompts.js';
 import { buildTools, type ToolContext } from './tools.js';
 import type { Orchestrator } from './orchestrator.js';
 
-export async function runTask(
-  task: Task,
-  config: CawpilotConfig,
-  db: Database.Database,
-  channels: Map<string, Channel>,
-  orchestrator?: Orchestrator,
-  context?: string,
-): Promise<void> {
+export type RunTaskOptions = {
+  task: Task;
+  config: CawpilotConfig;
+  db: Database.Database;
+  channels: Map<string, Channel>;
+  orchestrator?: Orchestrator;
+  context?: string;
+};
+
+export async function runTask({
+  task,
+  config,
+  db,
+  channels,
+  orchestrator,
+  context,
+}: RunTaskOptions): Promise<void> {
   logger.info(`Starting task: ${task.title} (${task.id})`);
   updateTaskStatus(db, task.id, 'in-progress');
 
@@ -35,11 +44,9 @@ export async function runTask(
   const sourceMessage = messages[0];
 
   // If no context provided by orchestrator, build from task messages
-  if (!context) {
-    context = messages
-      .map((m) => `[${m.role}] ${m.channel}/${m.sender}: ${m.content}`)
-      .join('\n');
-  }
+  context ??= messages
+    .map((m) => `[${m.role}] ${m.channel}/${m.sender}: ${m.content}`)
+    .join('\n');
 
   // Collect file attachments from messages (images, voice, etc.)
   const messageAttachments = messages.flatMap((m) =>

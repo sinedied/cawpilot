@@ -1,4 +1,5 @@
 import process from 'node:process';
+import type { Readable } from 'node:stream';
 import * as readline from 'node:readline';
 import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
@@ -11,6 +12,11 @@ export class CliChannel implements Channel {
   private onMessage: MessageHandler | undefined;
   private commandHandler: CommandHandler | undefined;
   private pendingInput: ((value: string) => void) | undefined;
+  private readonly input: Readable;
+
+  constructor(input?: Readable) {
+    this.input = input ?? process.stdin;
+  }
 
   setCommandHandler(handler: CommandHandler): void {
     this.commandHandler = handler;
@@ -24,7 +30,7 @@ export class CliChannel implements Channel {
   async start(onMessage: MessageHandler): Promise<void> {
     this.onMessage = onMessage;
     this.rl = readline.createInterface({
-      input: process.stdin,
+      input: this.input,
       output: process.stderr,
       prompt: '',
       terminal: false,
@@ -72,9 +78,7 @@ export class CliChannel implements Channel {
 
   async send(_sender: string, content: string): Promise<void> {
     // Output via stdout — the dashboard refresh will re-print the prompt after
-    process.stdout.write(
-      `\n${chalk.cyan('>')} ${content}\n`,
-    );
+    process.stdout.write(`\n${chalk.cyan('>')} ${content}\n`);
     process.stdout.write(chalk.green('> '));
   }
 
