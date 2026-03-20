@@ -5,6 +5,7 @@ import type { Orchestrator } from '../agent/orchestrator.js';
 import { handlePairCommand } from './pair.js';
 import { handleStatusCommand } from './status.js';
 import { handleCancelCommand } from './cancel.js';
+import { handleHelpCommand } from './help.js';
 
 export type CommandContext = {
   config: CawpilotConfig;
@@ -22,6 +23,15 @@ export async function handleCommand(
   ctx: CommandContext,
 ): Promise<void> {
   switch (command) {
+    case 'help': {
+      const channel = ctx.channels.get(channelName);
+      if (channel) {
+        await handleHelpCommand(channel, sender);
+      }
+
+      break;
+    }
+
     case 'pair': {
       await handlePairCommand(
         channelName,
@@ -113,7 +123,7 @@ export async function handleCommand(
     default: {
       const channel = ctx.channels.get(channelName);
       if (channel) {
-        await channel.send(sender, `Unknown command: /${command}`);
+        await channel.send(sender, `Unknown command: /${command}. Use /help to see available commands.`);
       }
     }
   }
