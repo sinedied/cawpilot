@@ -19,18 +19,24 @@ export function buildTaskSystemPrompt(options: {
   taskTitle: string;
   taskId: string;
   messageContext?: string;
+  conversationHistory?: string;
 }): string {
   const parts: string[] = [
-    `You are processing a task based on user messages from various channels.
+    `You are processing a task based on the following messages.
 Your workspace is at: ${options.workspacePath}
-Connected repositories: ${options.repos.join(', ') || 'none'}
 
 Current task: ${options.taskTitle}
 Task ID: ${options.taskId}`,
   ];
 
+  if (options.conversationHistory) {
+    parts.push(
+      `\nRecent conversation history:\n${options.conversationHistory}`,
+    );
+  }
+
   if (options.messageContext) {
-    parts.push(`\nUser messages for this task:\n${options.messageContext}`);
+    parts.push(`\nMessages for this task:\n${options.messageContext}`);
   }
 
   parts.push(`\nInstructions:
@@ -38,8 +44,8 @@ Task ID: ${options.taskId}`,
 - Send progress updates to the user via send_message
 - When done, update the task status to 'completed' with a summary
 - If you need more info, update status to 'need-info' and ask the user via send_message
-- If you make code changes, create a branch (cp-* prefix enforced) and a pull request
-- Follow the personality and style guidelines from the attached SOUL.md file
+- If you make code changes, create a branch (cp-* prefix enforced) and work on it
+- Use attached SOUL.md file to understand who you are and how you should behave
 - Refer to USER.md for context about the user you're working with
 `);
 

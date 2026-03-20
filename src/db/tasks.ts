@@ -98,7 +98,7 @@ export function getActiveTasks(db: Database.Database): Task[] {
   const rows = db
     .prepare(
       `
-    SELECT * FROM tasks WHERE status IN ('pending', 'in-progress', 'need-info')
+    SELECT * FROM tasks WHERE status IN ('pending', 'in-progress')
     ORDER BY created_at ASC
   `,
     )
@@ -120,6 +120,25 @@ export function getTaskById(
   const row = db.prepare(`SELECT * FROM tasks WHERE id = ?`).get(taskId) as
     | TaskRow
     | undefined;
+  return row ? rowToTask(row) : undefined;
+}
+
+export function getNeedInfoTaskBySender(
+  db: Database.Database,
+  channel: string,
+  sender: string,
+): Task | undefined {
+  const row = db
+    .prepare(
+      `
+    SELECT t.* FROM tasks t
+    JOIN messages m ON m.task_id = t.id
+    WHERE t.status = 'need-info' AND m.channel = ? AND m.sender = ?
+    ORDER BY t.updated_at DESC
+    LIMIT 1
+  `,
+    )
+    .get(channel, sender) as TaskRow | undefined;
   return row ? rowToTask(row) : undefined;
 }
 

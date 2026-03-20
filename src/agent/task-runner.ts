@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3';
 import { type CawpilotConfig, getContextFiles } from '../workspace/config.js';
 import type { Channel } from '../channels/types.js';
-import { getMessagesByTask } from '../db/messages.js';
+import { getMessagesByTask, getRecentHistory } from '../db/messages.js';
 import { updateTaskStatus, setTaskSessionId, type Task } from '../db/tasks.js';
 import { logger } from '../utils/logger.js';
 import { createTaskSession } from './runtime.js';
@@ -28,6 +28,15 @@ export async function runTask(
     .map((m) => `[${m.channel}/${m.sender}] ${m.content}`)
     .join('\n');
 
+  // Build recent conversation history for context
+  const history = getRecentHistory(db, config.contextMessagesCount);
+  const conversationHistory =
+    history.length > 0
+      ? history
+          .map((m) => `[${m.role}] ${m.channel}/${m.sender}: ${m.content}`)
+          .join('\n')
+      : undefined;
+
   // Collect file attachments from messages (images, voice, etc.)
   const messageAttachments = messages.flatMap((m) =>
     m.attachments.map((a) => ({ type: 'file' as const, path: a.path })),
@@ -40,6 +49,7 @@ export async function runTask(
     taskTitle: task.title,
     taskId: task.id,
     messageContext,
+    conversationHistory,
   });
 
   try {

@@ -15,6 +15,7 @@ import {
   updateTaskStatus,
   getActiveTasks,
   getTaskById,
+  getNeedInfoTaskBySender,
 } from '../../src/db/tasks.js';
 import {
   createScheduledTask,
@@ -133,16 +134,36 @@ describe('integration: message → task pipeline', () => {
     markMessagesProcessing(db, [m1.id], task.id);
     updateTaskStatus(db, task.id, 'need-info');
 
+    // need-info tasks are not considered active
     const active = getActiveTasks(db);
-    expect(active).toHaveLength(1);
-    expect(active[0].status).toBe('need-info');
+    expect(active).toHaveLength(0);
 
-    // User responds — new message gets linked
+    const updated = getTaskById(db, task.id);
+    expect(updated?.status).toBe('need-info');
+
+    // getNeedInfoTaskBySender finds the task for the same channel/sender
+    const found = getNeedInfoTaskBySender(db, 'telegram', 'user1');
+    expect(found).toBeDefined();
+    expect(found?.id).toBe(task.id);
+
+    // Different sender should not match
+    expect(getNeedInfoTaskBySender(db, 'telegram', 'user2')).toBeUndefined();
+
+    // User responds — new message gets linked and task resumes
     const m2 = createMessage(db, 'telegram', 'user1', 'Deploy to staging');
     markMessagesProcessing(db, [m2.id], task.id);
+    updateTaskStatus(db, task.id, 'in-progress');
 
     const taskMsgs = getMessagesByTask(db, task.id);
     expect(taskMsgs).toHaveLength(2);
+
+    // Task is now active again
+    const activeAfter = getActiveTasks(db);
+    expect(activeAfter).toHaveLength(1);
+    expect(activeAfter[0].status).toBe('in-progress');
+
+    // No more need-info task for this sender
+    expect(getNeedInfoTaskBySender(db, 'telegram', 'user1')).toBeUndefined();
   });
 });
 

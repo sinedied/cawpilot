@@ -15,6 +15,8 @@ import {
   createTask,
   getActiveTasks,
   getAllTasks,
+  getNeedInfoTaskBySender,
+  updateTaskStatus,
   type Task,
 } from '../db/tasks.js';
 import {
@@ -100,39 +102,78 @@ export class Orchestrator {
     logger.info(`Processing ${messages.length} unprocessed message(s)`);
 
     try {
-      const taskPlan = await this.triageMessages(messages);
+      // Check if any messages are replies to need-info tasks
+      const remainingMessages = this.resumeNeedInfoTasks(messages);
+      if (remainingMessages.length === 0) return;
+
+      const taskPlan = await this.triageMessages(remainingMessages);
 
       for (const plan of taskPlan.slice(0, availableSlots)) {
         const task = createTask(this.db, plan.title);
         markMessagesProcessing(this.db, plan.messageIds, task.id);
-        setNotification(
-          chalk.yellow(`⟳ Working on: ${task.title.slice(0, 40)}`),
-        );
-
-        const taskPromise = runTask(task, this.config, this.db, this.channels)
-          .then(() => {
-            this._processedCount++;
-            setNotification(
-              chalk.green(`✅ Task done: ${task.title.slice(0, 40)}`),
-            );
-          })
-          .catch(() => {
-            setNotification(
-              chalk.red(`❌ Task failed: ${task.title.slice(0, 40)}`),
-            );
-          })
-          .finally(() => {
-            this.runningTasks.delete(task.id);
-            this.updateTodoFile();
-          });
-
-        this.runningTasks.set(task.id, taskPromise);
+        this.dispatchTask(task);
       }
 
       this.updateTodoFile();
     } catch (error) {
       logger.error(`Failed to process messages: ${error}`);
     }
+  }
+
+  /**
+   * Check if incoming messages are answers to tasks waiting for info.
+   * Attaches matching messages to their need-info task and re-runs them.
+   * Returns messages that were NOT matched to any need-info task.
+   */
+  private resumeNeedInfoTasks(
+    messages: ReturnType<typeof getUnprocessedMessages>,
+  ): ReturnType<typeof getUnprocessedMessages> {
+    const remaining: typeof messages = [];
+
+    for (const msg of messages) {
+      const needInfoTask = getNeedInfoTaskBySender(
+        this.db,
+        msg.channel,
+        msg.sender,
+      );
+
+      if (needInfoTask) {
+        // Attach message to the existing task and resume it
+        markMessagesProcessing(this.db, [msg.id], needInfoTask.id);
+        updateTaskStatus(this.db, needInfoTask.id, 'in-progress');
+        logger.info(
+          `Resuming need-info task "${needInfoTask.title}" with reply from ${msg.channel}/${msg.sender}`,
+        );
+        this.dispatchTask(needInfoTask);
+      } else {
+        remaining.push(msg);
+      }
+    }
+
+    return remaining;
+  }
+
+  private dispatchTask(task: Task): void {
+    setNotification(chalk.yellow(`⟳ Working on: ${task.title.slice(0, 40)}`));
+
+    const taskPromise = runTask(task, this.config, this.db, this.channels)
+      .then(() => {
+        this._processedCount++;
+        setNotification(
+          chalk.green(`✅ Task done: ${task.title.slice(0, 40)}`),
+        );
+      })
+      .catch(() => {
+        setNotification(
+          chalk.red(`❌ Task failed: ${task.title.slice(0, 40)}`),
+        );
+      })
+      .finally(() => {
+        this.runningTasks.delete(task.id);
+        this.updateTodoFile();
+      });
+
+    this.runningTasks.set(task.id, taskPromise);
   }
 
   private async triageMessages(
