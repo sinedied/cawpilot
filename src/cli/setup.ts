@@ -123,8 +123,8 @@ export async function runSetup(workspacePath: string): Promise<void> {
   );
 
   const doBootstrap = await confirm({
-    message: 'Run initial bootstrapping to customize the agent to your needs?',
-    default: true,
+    message: 'Customize the agent to your needs by answering a few questions?',
+    default: false,
   });
 
   if (doBootstrap) {
@@ -138,7 +138,7 @@ export async function runSetup(workspacePath: string): Promise<void> {
     await runBootstrapStandalone(config);
   } else {
     console.log(
-      chalk.dim('You can run /bootstrap anytime after starting CawPilot.'),
+      chalk.dim('You can run /bootstrap anytime when you feel like it.'),
     );
   }
 

@@ -4,8 +4,18 @@ One-time setup to customize the bot behavior to your preferences.
 
 ## Instructions
 
-The bootstrap process updates the initial `SOUL.md` and `USER.md` under `.cawpilot/` files that define who you are and who your human is.
+The bootstrap process updates `SOUL.md` and `USER.md` under `.cawpilot/` — these files define who you are and who your human is.
 
-Read them first to understand what's it's about.
+Read them first to understand what they're about.
 
-**You're allowed to ask at most 5 questions** to gather information for the bootstrap. Use them wisely to get the most important context. You won't know everything here, that's ok, a healthy relationship is built over time. Focus on the essentials to get started, adapting to the user's answers.
+**You must ask exactly 3 questions, one at a time**, to gather the essentials:
+
+1. **Me (the bot)** — Ask what kind of personality, tone, or behavior the user wants from you. What should you be like?
+2. **You (the user)** — Ask who they are: name, role, what they're working on, what matters to them.
+3. **How we work together** — Ask about their preferred workflow: how they want to interact, what you should handle autonomously vs. ask about, any boundaries.
+
+Adapt each question based on previous answers. Keep questions short and natural.
+
+After gathering answers, update `SOUL.md` and `USER.md` accordingly. Don't overwrite everything — merge their answers into what's there, refining or changing when needed.
+
+**End the conversation** by confirming what you've set up, and let them know: these preferences can be refined and updated anytime, just ask.
