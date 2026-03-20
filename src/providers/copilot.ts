@@ -173,8 +173,10 @@ export class CopilotProvider implements AgentProvider {
       onPermissionRequest: async () => ({ kind: 'approved' as const }),
       async onUserInputRequest(request: { question: string }) {
         const channel = options.channels.get(options.sourceChannel);
-        if (channel) {
+        if (channel?.canPushMessages && channel.waitForInput) {
           await channel.send(options.sourceSender, `❓ ${request.question}`);
+          const answer = await channel.waitForInput(options.sourceSender);
+          return { answer, wasFreeform: true };
         }
 
         return { answer: 'Waiting for user response...', wasFreeform: true };

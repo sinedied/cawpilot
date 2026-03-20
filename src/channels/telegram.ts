@@ -13,10 +13,12 @@ import type {
 
 export class TelegramChannel implements Channel {
   readonly name = 'telegram';
+  readonly canPushMessages = true;
   private bot: Bot | undefined;
   private readonly allowList: Set<string>;
   private commandHandler: CommandHandler | undefined;
   private attachmentsDir: string | undefined;
+  private pendingInputs = new Map<string, (value: string) => void>();
 
   constructor(
     private readonly token: string,
@@ -57,6 +59,14 @@ export class TelegramChannel implements Channel {
       if (await this.handleCommand(text, chatId)) return;
       if (!this.isLinked(chatId)) {
         logger.debug(`Dropping message from unlinked Telegram chat ${chatId}`);
+        return;
+      }
+
+      // If waiting for input from this sender, resolve instead of dispatching
+      const resolve = this.pendingInputs.get(chatId);
+      if (resolve) {
+        this.pendingInputs.delete(chatId);
+        resolve(text);
         return;
       }
 
@@ -248,5 +258,11 @@ export class TelegramChannel implements Channel {
 
     logger.debug(`Downloaded Telegram ${type}: ${localPath}`);
     return { type, path: localPath, mimeType };
+  }
+
+  async waitForInput(sender: string): Promise<string> {
+    return new Promise<string>((resolve) => {
+      this.pendingInputs.set(sender, resolve);
+    });
   }
 }

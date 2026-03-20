@@ -17,9 +17,11 @@ type HttpAttachment = {
 
 export class HttpChannel implements Channel {
   readonly name = 'http';
+  readonly canPushMessages = false;
   private server: Server | undefined;
   private onMessage: MessageHandler | undefined;
   private attachmentsDir: string | undefined;
+  private pendingInputs = new Map<string, (value: string) => void>();
 
   constructor(
     private readonly port = 3000,
@@ -69,6 +71,15 @@ export class HttpChannel implements Channel {
           return;
         }
 
+        // If waiting for input from this sender, resolve instead of dispatching
+        const resolve = this.pendingInputs.get(sender);
+        if (resolve) {
+          this.pendingInputs.delete(sender);
+          resolve(content);
+          res.json({ status: 'received' });
+          return;
+        }
+
         let savedAttachments: Attachment[] | undefined;
         if (attachments?.length && this.attachmentsDir) {
           savedAttachments = attachments.map((a) => this.saveAttachment(a));
@@ -115,6 +126,12 @@ export class HttpChannel implements Channel {
 
   async send(_sender: string, _content: string): Promise<void> {
     logger.debug('HTTP channel does not support push messages');
+  }
+
+  async waitForInput(sender: string): Promise<string> {
+    return new Promise<string>((resolve) => {
+      this.pendingInputs.set(sender, resolve);
+    });
   }
 
   private saveAttachment(input: HttpAttachment): Attachment {

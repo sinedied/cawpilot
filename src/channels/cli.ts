@@ -6,9 +6,11 @@ import type { Channel, MessageHandler, CommandHandler } from './types.js';
 
 export class CliChannel implements Channel {
   readonly name = 'cli';
+  readonly canPushMessages = true;
   private rl: readline.Interface | undefined;
   private onMessage: MessageHandler | undefined;
   private commandHandler: CommandHandler | undefined;
+  private pendingInput: ((value: string) => void) | undefined;
 
   setCommandHandler(handler: CommandHandler): void {
     this.commandHandler = handler;
@@ -31,6 +33,14 @@ export class CliChannel implements Channel {
     this.rl.on('line', (line) => {
       const content = line.trim();
       if (!content) return;
+
+      // If waiting for input, resolve the pending promise instead of dispatching
+      if (this.pendingInput) {
+        const resolve = this.pendingInput;
+        this.pendingInput = undefined;
+        resolve(content);
+        return;
+      }
 
       const handle = async () => {
         // Handle slash commands
@@ -66,5 +76,11 @@ export class CliChannel implements Channel {
       `\n${chalk.cyan('>')} ${content}\n`,
     );
     process.stdout.write(chalk.green('> '));
+  }
+
+  async waitForInput(_sender: string): Promise<string> {
+    return new Promise<string>((resolve) => {
+      this.pendingInput = resolve;
+    });
   }
 }
