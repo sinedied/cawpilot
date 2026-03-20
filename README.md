@@ -1,11 +1,13 @@
 <div align="center">
 
-# 🐦 CawPilot
+<img src="./docs/images/cawpilot-logo.png" alt="" align="center" height="64" />
 
-**Your autonomous developer assistant, powered by GitHub Copilot SDK**
+# cawpilot
+
+**Your autonomous assistant, powered by GitHub Copilot SDK**
 
 [![Node.js](https://img.shields.io/badge/Node.js-24%2B-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Copilot SDK](https://img.shields.io/badge/Copilot_SDK-Technical_Preview-8957E5?style=flat-square&logo=github&logoColor=white)](https://github.com/github/copilot-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
