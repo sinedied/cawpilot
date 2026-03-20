@@ -31,6 +31,7 @@ import { logger } from '../utils/logger.js';
 import { isRunningInDocker } from '../utils/docker.js';
 import { loadEnvFile, saveEnvValue } from '../workspace/env.js';
 import { renderBanner, gradientText } from '../ui/banner.js';
+import { initializePersistence } from '../workspace/persistence.js';
 
 export async function runSetup(workspacePath: string): Promise<void> {
   console.log('\n' + renderBanner() + '\n');
@@ -108,6 +109,17 @@ export async function runSetup(workspacePath: string): Promise<void> {
       repo: repoName,
       backupIntervalDays: 1,
     };
+
+    // Save config early so it's on disk for the initial commit
+    saveConfig(config);
+
+    const persistSpinner = ora('Setting up persistence repo...').start();
+    const result = initializePersistence(config);
+    if (result.success) {
+      persistSpinner.succeed(result.message);
+    } else {
+      persistSpinner.warn(result.message);
+    }
   } else {
     config.persistence = { enabled: false, repo: '', backupIntervalDays: 1 };
   }
@@ -148,9 +160,7 @@ export async function runSetup(workspacePath: string): Promise<void> {
     console.log('');
     console.log('  Run ' + gradientText('cawpilot start') + ' to begin.');
     console.log(
-      chalk.dim(
-        '  Use /bootstrap once started to customize the agent.\n',
-      ),
+      chalk.dim('  Use /bootstrap once started to customize the agent.\n'),
     );
   }
 }

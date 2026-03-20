@@ -21,6 +21,63 @@ export function ensurePersistenceRepo(repo: string): void {
   }
 }
 
+function ensureGitRepo(workspacePath: string, repo: string): void {
+  if (!existsSync(join(workspacePath, '.git'))) {
+    execSync('git init', { cwd: workspacePath, stdio: 'pipe' });
+    execSync(`git remote add origin https://github.com/${repo}.git`, {
+      cwd: workspacePath,
+      stdio: 'pipe',
+    });
+    logger.debug('Initialized git repo in workspace');
+  }
+}
+
+function hasCommits(workspacePath: string): boolean {
+  try {
+    execSync('git rev-parse HEAD', { cwd: workspacePath, stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Initialize persistence: create repo, init git, and push initial commit.
+ */
+export function initializePersistence(config: CawpilotConfig): {
+  success: boolean;
+  message: string;
+} {
+  if (!config.persistence.enabled || !config.persistence.repo) {
+    return { success: false, message: 'Persistence is not enabled.' };
+  }
+
+  const { repo } = config.persistence;
+  const ws = config.workspacePath;
+
+  try {
+    ensurePersistenceRepo(repo);
+    ensureGitRepo(ws, repo);
+
+    if (!hasCommits(ws)) {
+      execSync('git add -A', { cwd: ws, stdio: 'pipe' });
+      execSync('git commit -m "Initial setup"', { cwd: ws, stdio: 'pipe' });
+      execSync('git push -u origin HEAD', { cwd: ws, stdio: 'pipe' });
+      logger.info(`Initial config pushed to ${repo}`);
+      return { success: true, message: `Repository ${repo} initialized.` };
+    }
+
+    return { success: true, message: `Repository ${repo} already set up.` };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.error(`Persistence initialization failed: ${msg}`);
+    return {
+      success: false,
+      message: `Persistence setup failed: ${msg}`,
+    };
+  }
+}
+
 /**
  * Run a backup: git init (if needed), add, commit with date, push.
  * Respects the workspace .gitignore.
@@ -38,16 +95,7 @@ export function runBackup(config: CawpilotConfig): {
 
   try {
     ensurePersistenceRepo(repo);
-
-    // Init git repo if not already
-    if (!existsSync(join(ws, '.git'))) {
-      execSync('git init', { cwd: ws, stdio: 'pipe' });
-      execSync(`git remote add origin https://github.com/${repo}.git`, {
-        cwd: ws,
-        stdio: 'pipe',
-      });
-      logger.debug('Initialized git repo in workspace');
-    }
+    ensureGitRepo(ws, repo);
 
     // Stage all files (respects .gitignore)
     execSync('git add -A', { cwd: ws, stdio: 'pipe' });
