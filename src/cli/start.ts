@@ -19,6 +19,7 @@ import type {
   MessageHandler,
 } from '../channels/types.js';
 import { logger } from '../utils/logger.js';
+import { loadEnvFile } from '../workspace/env.js';
 import { handleCommand } from '../commands/handler.js';
 import {
   initDashboard,
@@ -40,6 +41,7 @@ export async function runStart(
   const startTime = new Date();
 
   ensureWorkspace(workspacePath);
+  loadEnvFile(workspacePath);
   const db = getDb(getDbPath(workspacePath));
 
   // Clone connected repos

@@ -10,7 +10,7 @@ import {
 } from 'node:fs';
 import { join, basename, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { input, confirm, checkbox, select } from '@inquirer/prompts';
+import { input, confirm, checkbox, select, password } from '@inquirer/prompts';
 import ora from 'ora';
 import chalk from 'chalk';
 import {
@@ -28,6 +28,8 @@ import {
   checkCopilotAuth,
 } from '../agent/runtime.js';
 import { logger } from '../utils/logger.js';
+import { isRunningInDocker } from '../utils/docker.js';
+import { loadEnvFile, saveEnvValue } from '../workspace/env.js';
 
 export async function runSetup(workspacePath: string): Promise<void> {
   console.log(chalk.bold.cyan('\n🐦 Welcome to CawPilot Setup\n'));
@@ -37,6 +39,7 @@ export async function runSetup(workspacePath: string): Promise<void> {
 
   ensureWorkspace(workspacePath);
   ensureGitignore(workspacePath);
+  loadEnvFile(workspacePath);
   const config = loadConfig(workspacePath);
 
   // Step 1: Channels
@@ -63,19 +66,25 @@ export async function runSetup(workspacePath: string): Promise<void> {
 
   if (!user) {
     spinner.warn('GitHub CLI not authenticated');
-    console.log(chalk.dim('  Running: gh auth login\n'));
-    const result = spawnSync('gh', ['auth', 'login'], { stdio: 'inherit' });
-    if (result.status !== 0) {
-      console.log(chalk.red('\n  GitHub authentication failed.'));
-      return;
+
+    if (isRunningInDocker()) {
+      user = await authenticateDocker();
+    } else {
+      console.log(chalk.dim('  Running: gh auth login\n'));
+      const result = spawnSync('gh', ['auth', 'login'], { stdio: 'inherit' });
+      if (result.status === 0) {
+        user = getGitHubUser();
+      }
     }
 
-    user = getGitHubUser();
     if (!user) {
       console.log(chalk.red('\n  GitHub authentication failed.'));
       return;
     }
   }
+
+  // Persist token for future container restarts
+  persistGitHubToken(workspacePath);
 
   spinner = ora().start();
   spinner.succeed(`Authenticated as ${chalk.green(user)}`);
@@ -406,5 +415,64 @@ function ensureGitignore(workspacePath: string): void {
   if (existsSync(src)) {
     copyFileSync(src, gitignorePath);
     logger.debug(`Gitignore created at ${gitignorePath}`);
+  }
+}
+
+async function authenticateDocker(): Promise<string | undefined> {
+  const method = await select({
+    message: 'Choose authentication method:',
+    choices: [
+      {
+        name: 'Paste a Personal Access Token (PAT)',
+        value: 'token' as const,
+      },
+      {
+        name: 'Device code flow (opens github.com/login/device)',
+        value: 'device' as const,
+      },
+    ],
+  });
+
+  if (method === 'token') {
+    const token = await password({
+      message: 'GitHub Personal Access Token:',
+    });
+
+    if (!token) return undefined;
+
+    const result = spawnSync('gh', ['auth', 'login', '--with-token'], {
+      input: token,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    if (result.status !== 0) return undefined;
+    return getGitHubUser();
+  }
+
+  // Device code flow — no browser needed, user enters code at github.com
+  console.log('');
+  const result = spawnSync(
+    'gh',
+    ['auth', 'login', '--web', '--git-protocol', 'https'],
+    { stdio: 'inherit' },
+  );
+
+  if (result.status !== 0) return undefined;
+  return getGitHubUser();
+}
+
+function persistGitHubToken(workspacePath: string): void {
+  try {
+    const token = execSync('gh auth token', { stdio: 'pipe' })
+      .toString()
+      .trim();
+    if (token) {
+      saveEnvValue(workspacePath, 'GH_TOKEN', token);
+      console.log(
+        chalk.dim('  GitHub token saved for future container sessions.'),
+      );
+    }
+  } catch {
+    // Non-critical — token may have been provided via GH_TOKEN env var
   }
 }

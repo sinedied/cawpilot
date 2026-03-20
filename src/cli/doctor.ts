@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import chalk from 'chalk';
 import ora from 'ora';
 import { loadConfig, configExists, getDbPath } from '../workspace/config.js';
+import { loadEnvFile } from '../workspace/env.js';
 import { logger } from '../utils/logger.js';
 
 type CheckResult = {
@@ -14,6 +15,8 @@ type CheckResult = {
 
 export async function runDoctor(workspacePath: string): Promise<void> {
   console.log(chalk.bold.cyan('\n🐦 CawPilot Doctor\n'));
+
+  loadEnvFile(workspacePath);
 
   const checks: CheckResult[] = [];
 
@@ -85,7 +88,8 @@ function checkGitHubAuth(): CheckResult {
     const status = execSync('gh auth status', { stdio: 'pipe' })
       .toString()
       .trim();
-    return { name: 'GitHub Auth', ok: true, detail: 'Authenticated' };
+    const source = process.env.GH_TOKEN ? ' (via GH_TOKEN)' : '';
+    return { name: 'GitHub Auth', ok: true, detail: `Authenticated${source}` };
   } catch {
     return {
       name: 'GitHub Auth',
