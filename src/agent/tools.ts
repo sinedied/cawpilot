@@ -3,11 +3,6 @@ import type Database from 'better-sqlite3';
 import { updateTaskStatus } from '../db/tasks.js';
 import { createBotMessage } from '../db/messages.js';
 import type { Channel } from '../channels/types.js';
-import {
-  createBranch,
-  createPullRequest,
-  pushBranch,
-} from '../workspace/manager.js';
 import { logger } from '../utils/logger.js';
 
 export type ToolContext = {
@@ -55,19 +50,6 @@ const updateTodoSchema = z.object({
     .enum(['pending', 'in-progress', 'completed', 'failed', 'need-info'])
     .describe('New task status'),
   result: z.string().optional().describe('Result or summary of the task'),
-});
-
-const createBranchSchema = z.object({
-  repoDir: z.string().describe('Path to the repository directory'),
-  branchName: z
-    .string()
-    .describe('Branch name (cp- prefix will be added if missing)'),
-});
-
-const createPrSchema = z.object({
-  repoDir: z.string().describe('Path to the repository directory'),
-  title: z.string().describe('PR title'),
-  body: z.string().describe('PR body/description'),
 });
 
 export function buildTools(ctx: ToolContext) {
@@ -176,51 +158,6 @@ export function buildTools(ctx: ToolContext) {
         updateTaskStatus(ctx.db, taskId, status, result);
         logger.debug(`Task ${taskId} updated to ${status}`);
         return { updated: true };
-      },
-    },
-
-    create_branch: {
-      description: 'Create a new branch in a repository (cp- prefix enforced)',
-      parameters: {
-        type: 'object' as const,
-        properties: {
-          repoDir: {
-            type: 'string',
-            description: 'Path to the repository directory',
-          },
-          branchName: {
-            type: 'string',
-            description: 'Branch name (cp- prefix will be added)',
-          },
-        },
-        required: ['repoDir', 'branchName'],
-      },
-      async handler(args: unknown) {
-        const { repoDir, branchName } = createBranchSchema.parse(args);
-        const name = createBranch(repoDir, branchName);
-        return { branch: name };
-      },
-    },
-
-    create_pull_request: {
-      description: 'Push the current branch and create a pull request',
-      parameters: {
-        type: 'object' as const,
-        properties: {
-          repoDir: {
-            type: 'string',
-            description: 'Path to the repository directory',
-          },
-          title: { type: 'string', description: 'PR title' },
-          body: { type: 'string', description: 'PR body/description' },
-        },
-        required: ['repoDir', 'title', 'body'],
-      },
-      async handler(args: unknown) {
-        const { repoDir, title, body } = createPrSchema.parse(args);
-        pushBranch(repoDir, '');
-        const prUrl = createPullRequest(repoDir, title, body);
-        return { url: prUrl };
       },
     },
   };
