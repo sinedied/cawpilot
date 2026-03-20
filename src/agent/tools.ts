@@ -6,6 +6,14 @@ import type { Channel } from '../channels/types.js';
 import { logger } from '../utils/logger.js';
 import type { Orchestrator } from '../agent/orchestrator.js';
 
+export type ToolDefinition = {
+  description: string;
+  parameters: Record<string, unknown>;
+  handler: (args: unknown) => Promise<unknown>;
+};
+
+export type ToolDefinitions = Record<string, ToolDefinition>;
+
 export type ToolContext = {
   db: Database.Database;
   channels: Map<string, Channel>;
@@ -61,7 +69,7 @@ const updateTodoSchema = z.object({
   result: z.string().optional().describe('Result or summary of the task'),
 });
 
-export function buildTools(ctx: ToolContext) {
+export function buildTools(ctx: ToolContext): ToolDefinitions {
   return {
     send_message: {
       description:

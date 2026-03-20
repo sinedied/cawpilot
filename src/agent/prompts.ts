@@ -7,7 +7,13 @@ export const TRIAGE_SYSTEM_PROMPT = `You are a task triage system. Given a list 
 
 You will also receive recent conversation history for context. Use it to determine if new messages are follow-ups or answers to previous questions — if so, group them with the related context.
 
-Output ONLY a JSON array with objects containing "title" (short task description) and "messageIds" (array of message IDs to include).
+If you need more conversation history to make a decision, use the fetch_history tool to retrieve older messages before producing your output.
+
+Output ONLY a JSON array with objects containing:
+- "title" (short task description)
+- "messageIds" (array of message IDs to include)
+- "contextMessageIds" (optional array) — IDs of specific messages from the conversation history that should be included as extra context for this task. Only include messages that are directly relevant.
+
 Group related messages together. Each message should appear in exactly one task.`;
 
 /**
@@ -31,11 +37,9 @@ Instructions:
  */
 export function buildTaskPrompt(options: {
   workspacePath: string;
-  repos: string[];
   taskTitle: string;
   taskId: string;
-  messageContext?: string;
-  conversationHistory?: string;
+  context?: string;
 }): string {
   const parts: string[] = [
     `Process this task: ${options.taskTitle}`,
@@ -43,16 +47,8 @@ export function buildTaskPrompt(options: {
     `Workspace: ${options.workspacePath}`,
   ];
 
-  if (options.repos.length > 0) {
-    parts.push(`Repos: ${options.repos.join(', ')}`);
-  }
-
-  if (options.conversationHistory) {
-    parts.push(`\nRecent conversation history:\n${options.conversationHistory}`);
-  }
-
-  if (options.messageContext) {
-    parts.push(`\nMessages for this task:\n${options.messageContext}`);
+  if (options.context) {
+    parts.push(`\nConversation:\n${options.context}`);
   }
 
   return parts.join('\n');

@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3';
 import { type CawpilotConfig, getContextFiles } from '../workspace/config.js';
 import type { Channel } from '../channels/types.js';
-import { getMessagesByTask, getRecentHistory } from '../db/messages.js';
+import { getMessagesByTask } from '../db/messages.js';
 import {
   getTaskById,
   updateTaskStatus,
@@ -11,6 +11,7 @@ import {
 import { logger } from '../utils/logger.js';
 import { createTaskSession } from './runtime.js';
 import { TASK_SYSTEM_PROMPT, buildTaskPrompt } from './prompts.js';
+import { buildTools, type ToolContext } from './tools.js';
 import type { Orchestrator } from './orchestrator.js';
 
 export async function runTask(
@@ -19,6 +20,7 @@ export async function runTask(
   db: Database.Database,
   channels: Map<string, Channel>,
   orchestrator?: Orchestrator,
+  context?: string,
 ): Promise<void> {
   logger.info(`Starting task: ${task.title} (${task.id})`);
   updateTaskStatus(db, task.id, 'in-progress');
@@ -31,18 +33,13 @@ export async function runTask(
   }
 
   const sourceMessage = messages[0];
-  const messageContext = messages
-    .map((m) => `[${m.channel}/${m.sender}] ${m.content}`)
-    .join('\n');
 
-  // Build recent conversation history for context
-  const history = getRecentHistory(db, config.contextMessagesCount);
-  const conversationHistory =
-    history.length > 0
-      ? history
-          .map((m) => `[${m.role}] ${m.channel}/${m.sender}: ${m.content}`)
-          .join('\n')
-      : undefined;
+  // If no context provided by orchestrator, build from task messages
+  if (!context) {
+    context = messages
+      .map((m) => `[${m.role}] ${m.channel}/${m.sender}: ${m.content}`)
+      .join('\n');
+  }
 
   // Collect file attachments from messages (images, voice, etc.)
   const messageAttachments = messages.flatMap((m) =>
@@ -52,14 +49,22 @@ export async function runTask(
   const contextFiles = getContextFiles(config.workspacePath);
   const userPrompt = buildTaskPrompt({
     workspacePath: config.workspacePath,
-    repos: config.repos,
     taskTitle: task.title,
     taskId: task.id,
-    messageContext,
-    conversationHistory,
+    context,
   });
 
   try {
+    const toolCtx: ToolContext = {
+      db,
+      channels,
+      workspacePath: config.workspacePath,
+      taskId: task.id,
+      sourceChannel: sourceMessage.channel,
+      sourceSender: sourceMessage.sender,
+      orchestrator,
+    };
+
     const session = await createTaskSession({
       config,
       db,
@@ -68,6 +73,7 @@ export async function runTask(
       sourceChannel: sourceMessage.channel,
       sourceSender: sourceMessage.sender,
       systemPrompt: TASK_SYSTEM_PROMPT,
+      tools: buildTools(toolCtx),
       orchestrator,
       onAssistantMessage(content) {
         logger.debug(`Task ${task.id} assistant: ${content.slice(0, 100)}...`);

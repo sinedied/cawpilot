@@ -8,6 +8,8 @@ import {
   getUnprocessedMessages,
   markMessagesProcessing,
   getRecentHistory,
+  getMessagesByTask,
+  getMessagesByIds,
 } from '../db/messages.js';
 import {
   createTask,
@@ -27,6 +29,7 @@ import { setNotification } from '../cli/dashboard.js';
 import { logger } from '../utils/logger.js';
 import { archiveCompletedTasks } from '../workspace/cleanup.js';
 import { TRIAGE_SYSTEM_PROMPT, TASK_SYSTEM_PROMPT, buildTaskPrompt } from './prompts.js';
+import { buildTools, type ToolContext } from './tools.js';
 import { createTaskSession } from './runtime.js';
 import { runTask } from './task-runner.js';
 import type { AgentSession } from '../providers/provider.js';
@@ -140,7 +143,7 @@ export class Orchestrator {
       for (const plan of taskPlan.slice(0, availableSlots)) {
         const task = createTask(this.db, plan.title);
         markMessagesProcessing(this.db, plan.messageIds, task.id);
-        this.dispatchTask(task);
+        this.dispatchTask(task, plan.contextMessageIds);
       }
     } catch (error) {
       logger.error(`Failed to process messages: ${error}`);
@@ -180,10 +183,37 @@ export class Orchestrator {
     return remaining;
   }
 
-  private dispatchTask(task: Task): void {
+  /**
+   * Build a unified conversation context for a task.
+   * Includes recent history (user + bot messages across tasks),
+   * the task's own messages, and any explicitly referenced messages.
+   */
+  private buildConversationContext(taskId: string, extraMessageIds?: string[]): string {
+    const history = getRecentHistory(this.db, this.config.contextMessagesCount);
+    const taskMessages = getMessagesByTask(this.db, taskId);
+    const extraMessages = extraMessageIds ? getMessagesByIds(this.db, extraMessageIds) : [];
+
+    // Merge all sources, deduplicating by ID, preserving chronological order
+    const seen = new Set<string>();
+    const allMessages = [...extraMessages, ...history, ...taskMessages].filter((m) => {
+      if (seen.has(m.id)) return false;
+      seen.add(m.id);
+      return true;
+    });
+
+    // Sort chronologically
+    allMessages.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+    return allMessages
+      .map((m) => `[${m.role}] ${m.channel}/${m.sender}: ${m.content}`)
+      .join('\n');
+  }
+
+  private dispatchTask(task: Task, contextMessageIds?: string[]): void {
     setNotification(chalk.yellow(`⟳ Working on: ${task.title.slice(0, 40)}`));
 
-    const taskPromise = runTask(task, this.config, this.db, this.channels, this)
+    const context = this.buildConversationContext(task.id, contextMessageIds);
+    const taskPromise = runTask(task, this.config, this.db, this.channels, this, context)
       .then(() => {
         this._processedCount++;
         setNotification(
@@ -205,13 +235,50 @@ export class Orchestrator {
 
   private async triageMessages(
     messages: ReturnType<typeof getUnprocessedMessages>,
-  ): Promise<Array<{ title: string; messageIds: string[] }>> {
+  ): Promise<Array<{ title: string; messageIds: string[]; contextMessageIds?: string[] }>> {
     // Fetch recent history for context
     const history = getRecentHistory(this.db, this.config.contextMessagesCount);
     const historyContext =
       history.length > 0
-        ? `Recent conversation history (for context):\n${history.map((m) => `[${m.role}] ${m.channel}/${m.sender}: ${m.content}`).join('\n')}\n\n`
+        ? `Recent conversation history (for context):\n${history.map((m) => `ID: ${m.id} | [${m.role}] ${m.channel}/${m.sender}: ${m.content}`).join('\n')}\n\n`
         : '';
+
+    // Track how many messages the triage has already seen
+    let fetchedCount = this.config.contextMessagesCount;
+
+    // Tool to let the triage LLM fetch more history
+    const fetchHistoryTool = {
+      description:
+        'Fetch older conversation messages beyond what was initially provided. Returns messages ordered chronologically.',
+      parameters: {
+        type: 'object' as const,
+        properties: {
+          count: {
+            type: 'number',
+            description: 'How many additional older messages to fetch',
+          },
+        },
+        required: ['count'],
+      },
+      handler: async (args: unknown) => {
+        const { count } = args as { count: number };
+        const limit = Math.min(count, 100);
+        const allHistory = getRecentHistory(this.db, fetchedCount + limit);
+        // Return only the older messages not already provided
+        const olderMessages = allHistory.slice(0, allHistory.length - fetchedCount);
+        fetchedCount += olderMessages.length;
+        return {
+          messages: olderMessages.map((m) => ({
+            id: m.id,
+            role: m.role,
+            channel: m.channel,
+            sender: m.sender,
+            content: m.content,
+            createdAt: m.createdAt,
+          })),
+        };
+      },
+    };
 
     // For a single message, create a task directly without LLM triage
     if (messages.length === 1) {
@@ -233,6 +300,7 @@ export class Orchestrator {
         sourceChannel: messages[0].channel,
         sourceSender: messages[0].sender,
         systemPrompt: TRIAGE_SYSTEM_PROMPT,
+        tools: { fetch_history: fetchHistoryTool },
       });
 
       const messageList = messages
@@ -256,6 +324,7 @@ export class Orchestrator {
           return JSON.parse(jsonMatch[0]) as Array<{
             title: string;
             messageIds: string[];
+            contextMessageIds?: string[];
           }>;
         }
       }
@@ -355,6 +424,15 @@ export class Orchestrator {
 
   private async runScheduledTask(task: Task, prompt: string): Promise<void> {
     try {
+      const toolCtx: ToolContext = {
+        db: this.db,
+        channels: this.channels,
+        workspacePath: this.config.workspacePath,
+        taskId: task.id,
+        sourceChannel: 'cli',
+        sourceSender: 'scheduler',
+      };
+
       const session = await createTaskSession({
         config: this.config,
         db: this.db,
@@ -363,16 +441,16 @@ export class Orchestrator {
         sourceChannel: 'cli',
         sourceSender: 'scheduler',
         systemPrompt: TASK_SYSTEM_PROMPT,
+        tools: buildTools(toolCtx),
       });
 
       this.activeSessions.set(task.id, session);
 
       const userPrompt = buildTaskPrompt({
         workspacePath: this.config.workspacePath,
-        repos: this.config.repos,
         taskTitle: task.title,
         taskId: task.id,
-        messageContext: prompt,
+        context: prompt,
       });
 
       const contextFiles = getContextFiles(this.config.workspacePath);

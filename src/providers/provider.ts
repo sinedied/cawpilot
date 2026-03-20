@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3';
 import type { CawpilotConfig } from '../workspace/config.js';
 import type { Channel } from '../channels/types.js';
 import type { Orchestrator } from '../agent/orchestrator.js';
+import type { ToolDefinitions } from '../agent/tools.js';
 
 /**
  * Minimal model info returned by providers.
@@ -73,6 +74,7 @@ export type SessionOptions = {
   sourceChannel: string;
   sourceSender: string;
   systemPrompt: string;
+  tools: ToolDefinitions;
   orchestrator?: Orchestrator;
   onAssistantMessage?: (content: string) => void;
 };

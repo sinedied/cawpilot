@@ -165,6 +165,20 @@ export function getMessagesByTask(
   return rows.map(rowToMessage);
 }
 
+export function getMessagesByIds(
+  db: Database.Database,
+  ids: string[],
+): Message[] {
+  if (ids.length === 0) return [];
+  const placeholders = ids.map(() => '?').join(',');
+  const rows = db
+    .prepare(
+      `SELECT * FROM messages WHERE id IN (${placeholders}) ORDER BY created_at ASC`,
+    )
+    .all(...ids) as MessageRow[];
+  return rows.map(rowToMessage);
+}
+
 export function getMessageCount(db: Database.Database): number {
   const row = db.prepare('SELECT COUNT(*) as count FROM messages').get() as {
     count: number;

@@ -5,7 +5,6 @@ import {
   type CopilotSession,
 } from '@github/copilot-sdk';
 import { getSkillsPath } from '../workspace/config.js';
-import { buildTools, type ToolContext } from '../agent/tools.js';
 import { logger } from '../utils/logger.js';
 import type {
   AgentProvider,
@@ -150,18 +149,7 @@ export class CopilotProvider implements AgentProvider {
     if (!this.client)
       throw new Error('Provider not started. Call start() first.');
 
-    const toolCtx: ToolContext = {
-      db: options.db,
-      channels: options.channels,
-      workspacePath: options.config.workspacePath,
-      taskId: options.taskId,
-      sourceChannel: options.sourceChannel,
-      sourceSender: options.sourceSender,
-      orchestrator: options.orchestrator,
-    };
-
-    const tools = buildTools(toolCtx);
-    const sdkTools = Object.entries(tools).map(([name, def]) =>
+    const sdkTools = Object.entries(options.tools).map(([name, def]) =>
       defineTool(name, {
         description: def.description,
         parameters: def.parameters,
