@@ -70,7 +70,7 @@ export async function handleCommand(
         break;
       }
 
-      const lines = ['📅 **Scheduled Tasks**\n'];
+      const lines = ['📅 Scheduled Tasks\n'];
       for (const t of scheduled) {
         const status = t.enabled ? '✅ enabled' : '⏸️ disabled';
         const lastRun = t.lastRun
@@ -80,7 +80,7 @@ export async function handleCommand(
           ? new Date(t.nextRun).toLocaleString()
           : 'pending';
         lines.push(
-          `• **${t.name}** — ${status}`,
+          `• ${t.name} — ${status}`,
           `  Schedule: every ${t.schedule} min | Last: ${lastRun} | Next: ${nextRun}`,
         );
       }
