@@ -40,7 +40,7 @@ export async function handleStatusCommand(
     `🧠 Model: ${ctx.config.model ?? 'default'}`,
     '',
     `📬 Messages: ${messageCount} total`,
-    `📋 Tasks: ${taskCounts.total} total — ✅ ${taskCounts.completed} completed, ⏳ ${taskCounts.pending} pending, 🔄 ${taskCounts['in-progress']} in-progress, ❌ ${taskCounts.failed} failed`,
+    `📋 Tasks: ${taskCounts.total} total — ✅ ${taskCounts.completed + taskCounts.cancelled} completed, ⏳ ${taskCounts.pending} pending, 🔄 ${taskCounts['in-progress']} in-progress, ❌ ${taskCounts.failed} failed`,
   ];
 
   if (activeTasks.length > 0) {

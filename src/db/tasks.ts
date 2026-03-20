@@ -6,7 +6,8 @@ export type TaskStatus =
   | 'in-progress'
   | 'completed'
   | 'failed'
-  | 'need-info';
+  | 'need-info'
+  | 'cancelled';
 
 export type Task = {
   id: string;
@@ -160,6 +161,7 @@ export function getTaskCounts(
     completed: 0,
     failed: 0,
     'need-info': 0,
+    cancelled: 0,
   };
   for (const row of rows) {
     counts[row.status] = row.count;

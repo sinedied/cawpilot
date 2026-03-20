@@ -4,6 +4,7 @@ import type { Channel } from '../channels/types.js';
 import type { Orchestrator } from '../agent/orchestrator.js';
 import { handlePairCommand } from './pair.js';
 import { handleStatusCommand } from './status.js';
+import { handleCancelCommand } from './cancel.js';
 
 export type CommandContext = {
   config: CawpilotConfig;
@@ -101,6 +102,11 @@ export async function handleCommand(
 
     case 'status': {
       await handleStatusCommand(channelName, sender, ctx);
+      break;
+    }
+
+    case 'cancel': {
+      await handleCancelCommand(channelName, sender, args, ctx);
       break;
     }
 

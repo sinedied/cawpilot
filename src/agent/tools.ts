@@ -4,6 +4,7 @@ import { updateTaskStatus } from '../db/tasks.js';
 import { createBotMessage } from '../db/messages.js';
 import type { Channel } from '../channels/types.js';
 import { logger } from '../utils/logger.js';
+import type { Orchestrator } from '../agent/orchestrator.js';
 
 export type ToolContext = {
   db: Database.Database;
@@ -12,6 +13,7 @@ export type ToolContext = {
   taskId: string;
   sourceChannel: string;
   sourceSender: string;
+  orchestrator?: Orchestrator;
 };
 
 // Tool definitions use raw JSON Schema (not Zod) because the Copilot SDK
@@ -47,7 +49,14 @@ const sendMessageSchema = z.object({
 const updateTodoSchema = z.object({
   taskId: z.string().describe('The task ID to update'),
   status: z
-    .enum(['pending', 'in-progress', 'completed', 'failed', 'need-info'])
+    .enum([
+      'pending',
+      'in-progress',
+      'completed',
+      'failed',
+      'need-info',
+      'cancelled',
+    ])
     .describe('New task status'),
   result: z.string().optional().describe('Result or summary of the task'),
 });
@@ -130,7 +139,8 @@ export function buildTools(ctx: ToolContext) {
     },
 
     update_task_status: {
-      description: 'Update the status of the current task',
+      description:
+        'Update the status of a task. Use "cancelled" to abort an active task.',
       parameters: {
         type: 'object' as const,
         properties: {
@@ -143,6 +153,7 @@ export function buildTools(ctx: ToolContext) {
               'completed',
               'failed',
               'need-info',
+              'cancelled',
             ],
             description: 'New task status',
           },
@@ -155,6 +166,13 @@ export function buildTools(ctx: ToolContext) {
       },
       async handler(args: unknown) {
         const { taskId, status, result } = updateTodoSchema.parse(args);
+
+        if (status === 'cancelled' && ctx.orchestrator) {
+          const cancelled = await ctx.orchestrator.cancelTask(taskId);
+          logger.debug(`Task ${taskId} cancel request: ${cancelled}`);
+          return { updated: cancelled, cancelled };
+        }
+
         updateTaskStatus(ctx.db, taskId, status, result);
         logger.debug(`Task ${taskId} updated to ${status}`);
         return { updated: true };

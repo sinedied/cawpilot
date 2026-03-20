@@ -2,16 +2,23 @@ import type Database from 'better-sqlite3';
 import { type CawpilotConfig, getContextFiles } from '../workspace/config.js';
 import type { Channel } from '../channels/types.js';
 import { getMessagesByTask, getRecentHistory } from '../db/messages.js';
-import { updateTaskStatus, setTaskSessionId, type Task } from '../db/tasks.js';
+import {
+  getTaskById,
+  updateTaskStatus,
+  setTaskSessionId,
+  type Task,
+} from '../db/tasks.js';
 import { logger } from '../utils/logger.js';
 import { createTaskSession } from './runtime.js';
 import { buildTaskSystemPrompt } from './prompts.js';
+import type { Orchestrator } from './orchestrator.js';
 
 export async function runTask(
   task: Task,
   config: CawpilotConfig,
   db: Database.Database,
   channels: Map<string, Channel>,
+  orchestrator?: Orchestrator,
 ): Promise<void> {
   logger.info(`Starting task: ${task.title} (${task.id})`);
   updateTaskStatus(db, task.id, 'in-progress');
@@ -61,12 +68,14 @@ export async function runTask(
       sourceChannel: sourceMessage.channel,
       sourceSender: sourceMessage.sender,
       systemPrompt,
+      orchestrator,
       onAssistantMessage(content) {
         logger.debug(`Task ${task.id} assistant: ${content.slice(0, 100)}...`);
       },
     });
 
     setTaskSessionId(db, task.id, session.sessionId);
+    orchestrator?.registerSession(task.id, session);
 
     await session.send({
       prompt: `Process this task: ${task.title}\n\nContext:\n${messageContext}`,
@@ -79,6 +88,13 @@ export async function runTask(
     await session.disconnect();
     logger.info(`Task ${task.id} completed`);
   } catch (error) {
+    // If the task was already cancelled, don't overwrite status
+    const currentTask = getTaskById(db, task.id);
+    if (currentTask?.status === 'cancelled') {
+      logger.info(`Task ${task.id} was cancelled`);
+      return;
+    }
+
     const errMsg = error instanceof Error ? error.message : String(error);
     logger.error(`Task ${task.id} failed: ${errMsg}`);
     updateTaskStatus(db, task.id, 'failed', errMsg);

@@ -90,6 +90,10 @@ class CopilotAgentSession implements AgentSession {
     });
   }
 
+  async abort(): Promise<void> {
+    await this.session.abort();
+  }
+
   async disconnect(): Promise<void> {
     await this.session.disconnect();
   }
@@ -153,6 +157,7 @@ export class CopilotProvider implements AgentProvider {
       taskId: options.taskId,
       sourceChannel: options.sourceChannel,
       sourceSender: options.sourceSender,
+      orchestrator: options.orchestrator,
     };
 
     const tools = buildTools(toolCtx);

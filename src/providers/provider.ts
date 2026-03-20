@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import type { CawpilotConfig } from '../workspace/config.js';
 import type { Channel } from '../channels/types.js';
+import type { Orchestrator } from '../agent/orchestrator.js';
 
 /**
  * Minimal model info returned by providers.
@@ -51,6 +52,11 @@ export type AgentSession = {
   ): () => void;
 
   /**
+   * Abort the currently processing message. The session remains valid.
+   */
+  abort(): Promise<void>;
+
+  /**
    * Disconnect and free resources (session data preserved for resumption).
    */
   disconnect(): Promise<void>;
@@ -67,6 +73,7 @@ export type SessionOptions = {
   sourceChannel: string;
   sourceSender: string;
   systemPrompt: string;
+  orchestrator?: Orchestrator;
   onAssistantMessage?: (content: string) => void;
 };
 

@@ -13,6 +13,7 @@ import {
   createTask,
   getActiveTasks,
   getNeedInfoTaskBySender,
+  getTaskById,
   updateTaskStatus,
   type Task,
 } from '../db/tasks.js';
@@ -28,6 +29,7 @@ import { archiveCompletedTasks } from '../workspace/cleanup.js';
 import { TRIAGE_SYSTEM_PROMPT, buildTaskSystemPrompt } from './prompts.js';
 import { createTaskSession } from './runtime.js';
 import { runTask } from './task-runner.js';
+import type { AgentSession } from '../providers/provider.js';
 
 const POLL_INTERVAL_MS = 5000;
 const SCHEDULER_INTERVAL_MS = 60_000;
@@ -36,6 +38,7 @@ export class Orchestrator {
   private pollTimer: ReturnType<typeof setInterval> | undefined;
   private schedulerTimer: ReturnType<typeof setInterval> | undefined;
   private readonly runningTasks = new Map<string, Promise<void>>();
+  private readonly activeSessions = new Map<string, AgentSession>();
   private _processedCount = 0;
 
   constructor(
@@ -50,6 +53,35 @@ export class Orchestrator {
 
   get activeTaskCount(): number {
     return this.runningTasks.size;
+  }
+
+  registerSession(taskId: string, session: AgentSession): void {
+    this.activeSessions.set(taskId, session);
+  }
+
+  async cancelTask(taskId: string): Promise<boolean> {
+    const task = getTaskById(this.db, taskId);
+    if (!task || (task.status !== 'in-progress' && task.status !== 'pending')) {
+      return false;
+    }
+
+    const session = this.activeSessions.get(taskId);
+    if (session) {
+      try {
+        await session.abort();
+        await session.disconnect();
+      } catch (error) {
+        logger.warn(`Error aborting session for task ${taskId}: ${error}`);
+      }
+
+      this.activeSessions.delete(taskId);
+    }
+
+    updateTaskStatus(this.db, taskId, 'cancelled', 'Cancelled by user');
+    this.runningTasks.delete(taskId);
+    logger.info(`Task ${taskId} cancelled`);
+    setNotification(chalk.yellow(`🚫 Task cancelled: ${task.title.slice(0, 40)}`));
+    return true;
   }
 
   start(): void {
@@ -151,7 +183,7 @@ export class Orchestrator {
   private dispatchTask(task: Task): void {
     setNotification(chalk.yellow(`⟳ Working on: ${task.title.slice(0, 40)}`));
 
-    const taskPromise = runTask(task, this.config, this.db, this.channels)
+    const taskPromise = runTask(task, this.config, this.db, this.channels, this)
       .then(() => {
         this._processedCount++;
         setNotification(
@@ -165,6 +197,7 @@ export class Orchestrator {
       })
       .finally(() => {
         this.runningTasks.delete(task.id);
+        this.activeSessions.delete(task.id);
       });
 
     this.runningTasks.set(task.id, taskPromise);
@@ -337,6 +370,8 @@ export class Orchestrator {
         }),
       });
 
+      this.activeSessions.set(task.id, session);
+
       const contextFiles = getContextFiles(this.config.workspacePath);
       await session.send({
         prompt,
@@ -349,6 +384,8 @@ export class Orchestrator {
       this._processedCount++;
     } catch (error) {
       logger.error(`Scheduled task ${task.id} failed: ${error}`);
+    } finally {
+      this.activeSessions.delete(task.id);
     }
   }
 

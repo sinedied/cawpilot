@@ -51,7 +51,7 @@ export function renderDashboard(
     pad('Messages: ', String(messageCount)),
     pad(
       'Tasks:    ',
-      `${chalk.yellow(String(counts['in-progress']))} active · ${chalk.green(String(counts.completed))} done · ${chalk.red(String(counts.failed))} failed`,
+      `${chalk.yellow(String(counts['in-progress']))} active · ${chalk.green(String(counts.completed + counts.cancelled))} done · ${chalk.red(String(counts.failed))} failed`,
     ),
     pad('Queue:    ', `${counts.pending} pending`),
   );
