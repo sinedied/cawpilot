@@ -17,6 +17,7 @@ import { TelegramChannel } from '../channels/telegram.js';
 import { HttpChannel } from '../channels/http.js';
 import type { Channel, MessageHandler } from '../channels/types.js';
 import { logger } from '../utils/logger.js';
+import { handleStatusCommand } from '../commands/status.js';
 import {
   initDashboard,
   renderDashboard,
@@ -42,6 +43,7 @@ export async function runStart(
   const { debug } = options ?? { debug: false };
   const config = loadConfig(workspacePath);
   config.workspacePath = workspacePath;
+  const startTime = new Date();
 
   ensureWorkspace(workspacePath);
   const db = getDb(getDbPath(workspacePath));
@@ -265,6 +267,17 @@ export async function runStart(
         break;
       }
 
+      case 'status': {
+        await handleStatusCommand(channelName, sender, {
+          config,
+          db,
+          channels,
+          orchestrator,
+          startTime: startTime.getTime(),
+        });
+        break;
+      }
+
       default: {
         const channel = channels.get(channelName);
         if (channel) {
@@ -309,8 +322,6 @@ export async function runStart(
   orchestrator.start();
 
   // Dashboard
-  const startTime = new Date();
-
   if (debug) {
     // Debug mode: just log, no dashboard refresh
     console.log(renderDashboard(orchestrator, db, startTime));

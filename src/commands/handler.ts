@@ -3,12 +3,14 @@ import type { CawpilotConfig } from '../workspace/config.js';
 import type { Channel } from '../channels/types.js';
 import type { Orchestrator } from '../agent/orchestrator.js';
 import { handlePairCommand } from './pair.js';
+import { handleStatusCommand } from './status.js';
 
 export type CommandContext = {
   config: CawpilotConfig;
   db: Database.Database;
   channels: Map<string, Channel>;
   orchestrator: Orchestrator;
+  startTime: number;
 };
 
 export async function handleCommand(
@@ -94,6 +96,11 @@ export async function handleCommand(
         sender,
         result.success ? `✅ ${result.message}` : `❌ ${result.message}`,
       );
+      break;
+    }
+
+    case 'status': {
+      await handleStatusCommand(channelName, sender, ctx);
       break;
     }
 
