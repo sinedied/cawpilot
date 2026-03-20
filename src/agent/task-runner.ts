@@ -10,7 +10,7 @@ import {
 } from '../db/tasks.js';
 import { logger } from '../utils/logger.js';
 import { createTaskSession } from './runtime.js';
-import { buildTaskSystemPrompt } from './prompts.js';
+import { TASK_SYSTEM_PROMPT, buildTaskPrompt } from './prompts.js';
 import type { Orchestrator } from './orchestrator.js';
 
 export async function runTask(
@@ -50,7 +50,7 @@ export async function runTask(
   );
 
   const contextFiles = getContextFiles(config.workspacePath);
-  const systemPrompt = buildTaskSystemPrompt({
+  const userPrompt = buildTaskPrompt({
     workspacePath: config.workspacePath,
     repos: config.repos,
     taskTitle: task.title,
@@ -67,7 +67,7 @@ export async function runTask(
       taskId: task.id,
       sourceChannel: sourceMessage.channel,
       sourceSender: sourceMessage.sender,
-      systemPrompt,
+      systemPrompt: TASK_SYSTEM_PROMPT,
       orchestrator,
       onAssistantMessage(content) {
         logger.debug(`Task ${task.id} assistant: ${content.slice(0, 100)}...`);
@@ -78,7 +78,7 @@ export async function runTask(
     orchestrator?.registerSession(task.id, session);
 
     await session.send({
-      prompt: `Process this task: ${task.title}\n\nContext:\n${messageContext}`,
+      prompt: userPrompt,
       attachments: [
         ...contextFiles.map((p) => ({ type: 'file' as const, path: p })),
         ...messageAttachments,

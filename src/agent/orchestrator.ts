@@ -26,7 +26,7 @@ import {
 import { setNotification } from '../cli/dashboard.js';
 import { logger } from '../utils/logger.js';
 import { archiveCompletedTasks } from '../workspace/cleanup.js';
-import { TRIAGE_SYSTEM_PROMPT, buildTaskSystemPrompt } from './prompts.js';
+import { TRIAGE_SYSTEM_PROMPT, TASK_SYSTEM_PROMPT, buildTaskPrompt } from './prompts.js';
 import { createTaskSession } from './runtime.js';
 import { runTask } from './task-runner.js';
 import type { AgentSession } from '../providers/provider.js';
@@ -362,19 +362,22 @@ export class Orchestrator {
         taskId: task.id,
         sourceChannel: 'cli',
         sourceSender: 'scheduler',
-        systemPrompt: buildTaskSystemPrompt({
-          workspacePath: this.config.workspacePath,
-          repos: this.config.repos,
-          taskTitle: task.title,
-          taskId: task.id,
-        }),
+        systemPrompt: TASK_SYSTEM_PROMPT,
       });
 
       this.activeSessions.set(task.id, session);
 
+      const userPrompt = buildTaskPrompt({
+        workspacePath: this.config.workspacePath,
+        repos: this.config.repos,
+        taskTitle: task.title,
+        taskId: task.id,
+        messageContext: prompt,
+      });
+
       const contextFiles = getContextFiles(this.config.workspacePath);
       await session.send({
-        prompt,
+        prompt: userPrompt,
         attachments: contextFiles.map((p) => ({
           type: 'file' as const,
           path: p,
