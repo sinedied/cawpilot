@@ -5,6 +5,8 @@ import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
 import type { Channel, MessageHandler, CommandHandler } from './types.js';
 
+type SendCallback = (content: string) => void;
+
 export class CliChannel implements Channel {
   readonly name = 'cli';
   readonly canPushMessages = true;
@@ -12,6 +14,8 @@ export class CliChannel implements Channel {
   private onMessage: MessageHandler | undefined;
   private commandHandler: CommandHandler | undefined;
   private pendingInput: ((value: string) => void) | undefined;
+  private sendCallback: SendCallback | undefined;
+  private dashboardMode = false;
   private readonly input: Readable;
 
   constructor(input?: Readable) {
@@ -22,13 +26,26 @@ export class CliChannel implements Channel {
     this.commandHandler = handler;
   }
 
-  /** Expose readline for dashboard coordination */
+  /**
+   * In dashboard mode, Ink handles stdin. The CLI channel skips readline
+   * and routes send() through a callback that emits chat events.
+   */
+  enableDashboardMode(callback: SendCallback): void {
+    this.dashboardMode = true;
+    this.sendCallback = callback;
+  }
+
+  /** Expose readline for non-dashboard coordination */
   getRl(): readline.Interface | undefined {
     return this.rl;
   }
 
   async start(onMessage: MessageHandler): Promise<void> {
     this.onMessage = onMessage;
+
+    // In dashboard mode, Ink owns stdin — skip readline
+    if (this.dashboardMode) return;
+
     this.rl = readline.createInterface({
       input: this.input,
       output: process.stderr,
@@ -37,37 +54,45 @@ export class CliChannel implements Channel {
     });
 
     this.rl.on('line', (line) => {
-      const content = line.trim();
-      if (!content) return;
+      this.handleLine(line);
+    });
+  }
 
-      // If waiting for input, resolve the pending promise instead of dispatching
-      if (this.pendingInput) {
-        const resolve = this.pendingInput;
-        this.pendingInput = undefined;
-        resolve(content);
+  /**
+   * Process a line of input. Called by readline in non-dashboard mode,
+   * or by the Ink dashboard when the user submits text.
+   */
+  handleLine(line: string): void {
+    const content = line.trim();
+    if (!content) return;
+
+    // If waiting for input, resolve the pending promise instead of dispatching
+    if (this.pendingInput) {
+      const resolve = this.pendingInput;
+      this.pendingInput = undefined;
+      resolve(content);
+      return;
+    }
+
+    const handle = async () => {
+      // Handle slash commands
+      if (content.startsWith('/')) {
+        const parts = content.slice(1).split(/\s+/v);
+        const command = parts[0];
+        const args = parts.slice(1);
+        await this.commandHandler?.(command, 'cli', 'local', args);
         return;
       }
 
-      const handle = async () => {
-        // Handle slash commands
-        if (content.startsWith('/')) {
-          const parts = content.slice(1).split(/\s+/v);
-          const command = parts[0];
-          const args = parts.slice(1);
-          await this.commandHandler?.(command, 'cli', 'local', args);
-          return;
-        }
-
-        await this.onMessage?.({
-          channel: 'cli',
-          sender: 'local',
-          content,
-        });
-      };
-
-      handle().catch((error: unknown) => {
-        logger.error(`CLI handler error: ${error}`);
+      await this.onMessage?.({
+        channel: 'cli',
+        sender: 'local',
+        content,
       });
+    };
+
+    handle().catch((error: unknown) => {
+      logger.error(`CLI handler error: ${error}`);
     });
   }
 
@@ -77,7 +102,12 @@ export class CliChannel implements Channel {
   }
 
   async send(_sender: string, content: string): Promise<void> {
-    // Output via stdout — the dashboard refresh will re-print the prompt after
+    if (this.sendCallback) {
+      this.sendCallback(content);
+      return;
+    }
+
+    // Fallback: direct stdout (standalone bootstrap, debug mode)
     process.stdout.write(`\n${chalk.cyan('>')} ${content}\n`);
     process.stdout.write(chalk.green('> '));
   }

@@ -6,6 +6,7 @@ import ora from 'ora';
 import { loadConfig, configExists, getDbPath } from '../workspace/config.js';
 import { loadEnvFile } from '../workspace/env.js';
 import { logger } from '../utils/logger.js';
+import { renderBanner } from '../ui/banner.js';
 
 type CheckResult = {
   name: string;
@@ -14,7 +15,8 @@ type CheckResult = {
 };
 
 export async function runDoctor(workspacePath: string): Promise<void> {
-  console.log(chalk.bold.cyan('\n🐦 CawPilot Doctor\n'));
+  console.log('\n' + renderBanner());
+  console.log(chalk.dim('  diagnostics\n'));
 
   loadEnvFile(workspacePath);
 

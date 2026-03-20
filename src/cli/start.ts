@@ -1,5 +1,7 @@
 import process from 'node:process';
+import React from 'react';
 import chalk from 'chalk';
+import { render } from 'ink';
 import {
   loadConfig,
   getDbPath,
@@ -20,12 +22,9 @@ import type {
 } from '../channels/types.js';
 import { logger } from '../utils/logger.js';
 import { loadEnvFile } from '../workspace/env.js';
+import { App } from '../ui/app.js';
 import { handleCommand } from '../commands/handler.js';
-import {
-  initDashboard,
-  renderDashboard,
-  refreshDashboard,
-} from './dashboard.js';
+import { addChatMessage } from './dashboard.js';
 
 export type StartOptions = {
   debug: boolean;
@@ -131,26 +130,8 @@ export async function runStart(
   const orchestrator = new Orchestrator(config, db, channels);
   orchestrator.start();
 
-  // Dashboard
-  if (debug) {
-    // Debug mode: just log, no dashboard refresh
-    console.log(renderDashboard(orchestrator, db, startTime));
-    console.log(chalk.dim('Debug logging enabled. Press Ctrl+C to stop.\n'));
-  } else {
-    // Normal mode: clear screen, draw dashboard + prompt
-    initDashboard(orchestrator, db, startTime);
-  }
-
-  const dashboardInterval = debug
-    ? undefined
-    : setInterval(() => {
-        refreshDashboard(orchestrator, db, startTime);
-      }, 5000);
-
   // Graceful shutdown
   const shutdown = async () => {
-    console.log(chalk.dim('\nShutting down...'));
-    if (dashboardInterval) clearInterval(dashboardInterval);
     orchestrator.stop();
 
     const channelEntries = [...channels.entries()];
@@ -170,14 +151,63 @@ export async function runStart(
 
     await stopRuntime();
     closeDb();
-    console.log(chalk.green('CawPilot stopped. 👋\n'));
-    process.exit(0);
   };
 
-  process.on('SIGINT', () => {
-    shutdown().catch(() => process.exit(1));
-  });
-  process.on('SIGTERM', () => {
-    shutdown().catch(() => process.exit(1));
-  });
+  // Dashboard
+  if (debug) {
+    // Debug mode: just log, no Ink dashboard
+    console.log(chalk.dim('Debug logging enabled. Press Ctrl+C to stop.\n'));
+
+    process.on('SIGINT', () => {
+      console.log(chalk.dim('\nShutting down...'));
+      shutdown()
+        .then(() => {
+          console.log(chalk.green('cawpilot stopped.\n'));
+          process.exit(0);
+        })
+        .catch(() => process.exit(1));
+    });
+    process.on('SIGTERM', () => {
+      shutdown()
+        .then(() => process.exit(0))
+        .catch(() => process.exit(1));
+    });
+  } else {
+    // Normal mode: Ink dashboard in alternate screen
+    cliChannel.enableDashboardMode((content) => {
+      addChatMessage({ sender: 'bot', content });
+    });
+
+    const handleInput = (text: string) => {
+      cliChannel.handleLine(text);
+    };
+
+    // Enter alternate screen buffer
+    process.stdout.write('\u001B[?1049h');
+
+    const inkApp = render(
+      React.createElement(App, {
+        db,
+        startTime,
+        onInput: handleInput,
+      }),
+      {
+        exitOnCtrlC: true,
+        patchConsole: false,
+      },
+    );
+
+    // Also handle SIGTERM for containerized shutdown
+    process.on('SIGTERM', () => {
+      inkApp.unmount();
+    });
+
+    await inkApp.waitUntilExit();
+
+    // Leave alternate screen buffer
+    process.stdout.write('\u001B[?1049l');
+    await shutdown();
+    console.log(chalk.green('cawpilot stopped.\n'));
+    process.exit(0);
+  }
 }

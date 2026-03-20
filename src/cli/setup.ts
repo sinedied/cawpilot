@@ -30,11 +30,12 @@ import {
 import { logger } from '../utils/logger.js';
 import { isRunningInDocker } from '../utils/docker.js';
 import { loadEnvFile, saveEnvValue } from '../workspace/env.js';
+import { renderBanner } from '../ui/banner.js';
 
 export async function runSetup(workspacePath: string): Promise<void> {
-  console.log(chalk.bold.cyan('\n🐦 Welcome to CawPilot Setup\n'));
+  console.log('\n' + renderBanner() + '\n');
   console.log(
-    chalk.dim('This wizard will configure your CawPilot instance.\n'),
+    chalk.dim("  Let's get you set up — this'll only take a minute.\n"),
   );
 
   ensureWorkspace(workspacePath);
@@ -43,13 +44,13 @@ export async function runSetup(workspacePath: string): Promise<void> {
   const config = loadConfig(workspacePath);
 
   // Step 1: Channels
-  console.log(chalk.bold('Step 1: Channels'));
+  console.log(chalk.bold('Where should your bot listen?'));
 
   const channels = await setupChannels(config.channels);
   config.channels = channels;
 
   // Step 2: GitHub auth
-  console.log(chalk.bold('\nStep 2: GitHub Authentication'));
+  console.log(chalk.bold('\nConnecting to GitHub'));
   let spinner = ora('Checking GitHub CLI...').start();
 
   try {
@@ -86,11 +87,10 @@ export async function runSetup(workspacePath: string): Promise<void> {
   // Persist token for future container restarts
   persistGitHubToken(workspacePath);
 
-  spinner = ora().start();
   spinner.succeed(`Authenticated as ${chalk.green(user)}`);
 
   // Step 3: Persistence
-  console.log(chalk.bold('\nStep 3: Configuration Persistence'));
+  console.log(chalk.bold('\nBack up your config?'));
   const enablePersistence = await confirm({
     message: 'Persist configuration in a private GitHub repo? (recommended)',
     default: true,
@@ -111,12 +111,12 @@ export async function runSetup(workspacePath: string): Promise<void> {
   }
 
   // Step 4: Skills
-  console.log(chalk.bold('\nStep 4: Skills'));
+  console.log(chalk.bold('\nPick your skills'));
   const skills = await setupSkills(workspacePath);
   config.skills = skills;
 
   // Step 5: Copilot CLI & Model
-  console.log(chalk.bold('\nStep 5: Copilot Agent Runtime'));
+  console.log(chalk.bold('\nChoose your model'));
   const model = await setupCopilotAndModel(config.model);
   config.model = model;
 
@@ -126,9 +126,9 @@ export async function runSetup(workspacePath: string): Promise<void> {
   ensureTemplate(workspacePath, 'SOUL.md');
   ensureTemplate(workspacePath, 'USER.md');
 
-  console.log(chalk.bold.green('\n✅ Setup complete!\n'));
+  console.log(chalk.bold.green("\n  You're all set! 🎉\n"));
   console.log(
-    chalk.dim('Customize your agent personality in .cawpilot/soul.md'),
+    chalk.dim('  Customize your agent personality in .cawpilot/soul.md'),
   );
 
   const doBootstrap = await confirm({
@@ -151,7 +151,7 @@ export async function runSetup(workspacePath: string): Promise<void> {
     );
   }
 
-  console.log(chalk.dim('\nStart CawPilot with: cawpilot start\n'));
+  console.log(chalk.dim('\nStart with: cawpilot start\n'));
 }
 
 async function setupChannels(
