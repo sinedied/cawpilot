@@ -30,7 +30,7 @@ import {
 import { logger } from '../utils/logger.js';
 import { isRunningInDocker } from '../utils/docker.js';
 import { loadEnvFile, saveEnvValue } from '../workspace/env.js';
-import { renderBanner } from '../ui/banner.js';
+import { renderBanner, gradientText } from '../ui/banner.js';
 
 export async function runSetup(workspacePath: string): Promise<void> {
   console.log('\n' + renderBanner() + '\n');
@@ -84,8 +84,10 @@ export async function runSetup(workspacePath: string): Promise<void> {
     }
   }
 
-  // Persist token for future container restarts
-  persistGitHubToken(workspacePath);
+  // Persist token for future container restarts (only in Docker)
+  if (isRunningInDocker()) {
+    persistGitHubToken(workspacePath);
+  }
 
   spinner.succeed(`Authenticated as ${chalk.green(user)}`);
 
@@ -127,31 +129,30 @@ export async function runSetup(workspacePath: string): Promise<void> {
   ensureTemplate(workspacePath, 'USER.md');
 
   console.log(chalk.bold.green("\n  You're all set! 🎉\n"));
-  console.log(
-    chalk.dim('  Customize your agent personality in .cawpilot/soul.md'),
-  );
 
-  const doBootstrap = await confirm({
-    message: 'Customize the agent to your needs by answering a few questions?',
+  const doStart = await confirm({
+    message: 'Start cawpilot now?',
     default: false,
   });
 
-  if (doBootstrap) {
+  if (doStart) {
     console.log(
       chalk.dim(
-        '\nStarting bootstrap... (you can also run it later with /bootstrap)\n',
+        '\nTip: use /bootstrap once started to customize the agent interactively.\n',
       ),
     );
-    // Defer to start command which will handle the bootstrap
-    const { runBootstrapStandalone } = await import('../agent/bootstrap.js');
-    await runBootstrapStandalone(config);
+    const debug = false;
+    const { runStart } = await import('./start.js');
+    await runStart(workspacePath, { debug });
   } else {
+    console.log('');
+    console.log('  Run ' + gradientText('cawpilot start') + ' to begin.');
     console.log(
-      chalk.dim('You can run /bootstrap anytime when you feel like it.'),
+      chalk.dim(
+        '  Use /bootstrap once started to customize the agent.\n',
+      ),
     );
   }
-
-  console.log(chalk.dim('\nStart with: cawpilot start\n'));
 }
 
 async function setupChannels(

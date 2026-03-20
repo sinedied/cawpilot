@@ -40,3 +40,14 @@ export function renderBanner(): string {
   });
   return applyGradient(text);
 }
+
+export function gradientText(text: string): string {
+  let result = '';
+  const chars = [...text];
+  for (const [i, char] of chars.entries()) {
+    const ratio = chars.length > 1 ? i / (chars.length - 1) : 0;
+    result += chalk.hex(lerpColor(purple, teal, ratio))(char);
+  }
+
+  return result;
+}

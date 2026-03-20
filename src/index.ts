@@ -6,7 +6,6 @@ import { Command } from 'commander';
 import { runSetup } from './cli/setup.js';
 import { runStart } from './cli/start.js';
 import { runDoctor } from './cli/doctor.js';
-import { runSend } from './cli/send.js';
 import { logger } from './utils/logger.js';
 
 // Ensure CTRL+C always exits cleanly (overridden by start command's own handler)
@@ -27,7 +26,7 @@ const program = new Command();
 program
   .name('cawpilot')
   .description('Autonomous developer assistant powered by GitHub Copilot SDK')
-  .version('0.1.0')
+  .version('0.1.0', '-v, --version')
   .option('--debug', 'Enable verbose logging output')
   .hook('preAction', (thisCommand) => {
     const opts = thisCommand.optsWithGlobals();
@@ -60,13 +59,6 @@ program
   .description('Run diagnostics to verify configuration and connectivity')
   .action(async () => {
     await runDoctor(getWorkspace());
-  });
-
-program
-  .command('send <message>')
-  .description('Send a message to the bot from the CLI channel')
-  .action(async (message: string) => {
-    await runSend(getWorkspace(), message);
   });
 
 program.parse();
