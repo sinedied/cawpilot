@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./docs/images/cawpilot-logo.png" alt="" align="center" height="64" />
+<img src="./docs/images/cawpilot-logo.png" alt="" align="center" height="96" />
 
 # cawpilot
 
