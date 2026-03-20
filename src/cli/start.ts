@@ -13,7 +13,11 @@ import { Orchestrator } from '../agent/orchestrator.js';
 import { CliChannel } from '../channels/cli.js';
 import { TelegramChannel } from '../channels/telegram.js';
 import { HttpChannel } from '../channels/http.js';
-import type { Channel, CommandHandler, MessageHandler } from '../channels/types.js';
+import type {
+  Channel,
+  CommandHandler,
+  MessageHandler,
+} from '../channels/types.js';
 import { logger } from '../utils/logger.js';
 import { handleCommand } from '../commands/handler.js';
 import {
@@ -47,8 +51,6 @@ export async function runStart(
     }
   }
 
-
-
   // Initialize channels
   const channels = new Map<string, Channel>();
 
@@ -78,7 +80,12 @@ export async function runStart(
   }
 
   // Command handler delegates to centralized handler
-  const commandHandler: CommandHandler = async (command, channelName, sender, args) => {
+  const commandHandler: CommandHandler = async (
+    command,
+    channelName,
+    sender,
+    args,
+  ) => {
     await handleCommand(command, channelName, sender, args, {
       config,
       db,

@@ -1,8 +1,11 @@
+import path from 'node:path';
 import process from 'node:process';
 import {
   CopilotClient,
   defineTool,
   type CopilotSession,
+  type PermissionRequest,
+  type PermissionRequestResult,
 } from '@github/copilot-sdk';
 import { getSkillsPath } from '../workspace/config.js';
 import { logger } from '../utils/logger.js';
@@ -98,6 +101,78 @@ class CopilotAgentSession implements AgentSession {
   }
 }
 
+/**
+ * Check whether a resolved file path is inside the allowed workspace.
+ */
+export function isInsideWorkspace(
+  filePath: string,
+  workspacePath: string,
+): boolean {
+  const resolved = path.resolve(workspacePath, filePath);
+  const normalizedWorkspace = path.resolve(workspacePath) + path.sep;
+  return (
+    resolved === path.resolve(workspacePath) ||
+    resolved.startsWith(normalizedWorkspace)
+  );
+}
+
+export function createSandboxedPermissionHandler(
+  workspacePath: string,
+): (request: PermissionRequest) => Promise<PermissionRequestResult> {
+  const deny = (reason: string): PermissionRequestResult => ({
+    kind: 'denied-by-rules' as const,
+    rules: [reason],
+  });
+
+  return async (request: PermissionRequest) => {
+    switch (request.kind) {
+      case 'read': {
+        const readPath = request.path as string | undefined;
+        if (readPath && !isInsideWorkspace(readPath, workspacePath)) {
+          logger.warn(`Blocked read outside workspace: ${readPath}`);
+          return deny(`Path outside workspace: ${readPath}`);
+        }
+
+        break;
+      }
+
+      case 'write': {
+        const writePath = request.fileName as string | undefined;
+        if (writePath && !isInsideWorkspace(writePath, workspacePath)) {
+          logger.warn(`Blocked write outside workspace: ${writePath}`);
+          return deny(`Path outside workspace: ${writePath}`);
+        }
+
+        break;
+      }
+
+      case 'shell': {
+        const possiblePaths = request.possiblePaths as string[] | undefined;
+        if (possiblePaths) {
+          for (const p of possiblePaths) {
+            if (!isInsideWorkspace(p, workspacePath)) {
+              logger.warn(`Blocked shell with path outside workspace: ${p}`);
+              return deny(
+                `Shell command references path outside workspace: ${p}`,
+              );
+            }
+          }
+        }
+
+        break;
+      }
+
+      case 'mcp':
+      case 'url':
+      case 'custom-tool': {
+        break;
+      }
+    }
+
+    return { kind: 'approved' as const };
+  };
+}
+
 export class CopilotProvider implements AgentProvider {
   readonly name = 'copilot';
   private client: CopilotClient | undefined;
@@ -159,18 +234,21 @@ export class CopilotProvider implements AgentProvider {
 
     const skillsDir = getSkillsPath(options.config.workspacePath);
 
+    const { workspacePath } = options.config;
+
     const session = await this.client.createSession({
       model: options.config.model,
       tools: sdkTools,
       skillDirectories: [skillsDir],
       streaming: true,
+      workingDirectory: workspacePath,
       systemMessage: {
         content: options.systemPrompt,
       },
       provider: options.config.provider as Parameters<
         typeof this.client.createSession
       >[0]['provider'],
-      onPermissionRequest: async () => ({ kind: 'approved' as const }),
+      onPermissionRequest: createSandboxedPermissionHandler(workspacePath),
       async onUserInputRequest(request: { question: string }) {
         const channel = options.channels.get(options.sourceChannel);
         if (channel?.canPushMessages && channel.waitForInput) {
