@@ -39,14 +39,12 @@
     "commander": "^14.0.3",
     "express": "^5.2.1",
     "grammy": "^1.41.1",
-    "localtunnel": "^2.0.2",
     "ora": "^9.3.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^5.0.6",
-    "@types/localtunnel": "^2.0.4",
     "@types/node": "^25.5.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
@@ -72,7 +70,10 @@
       "@typescript-eslint/member-ordering": "off",
       "unicorn/prevent-abbreviations": "off",
       "unicorn/no-process-exit": "off",
-      "max-params": ["error", 5],
+      "max-params": [
+        "error",
+        5
+      ],
       "unicorn/no-array-callback-reference": "off",
       "@stylistic/curly-newline": "off",
       "@typescript-eslint/class-literal-property-style": "off",
