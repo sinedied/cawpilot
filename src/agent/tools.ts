@@ -25,6 +25,16 @@ export type ToolContext = {
 
 const sendMessageSchema = z.object({
   content: z.string().describe('The message content to send'),
+  attachments: z
+    .array(
+      z.object({
+        path: z.string().describe('Absolute path to the file'),
+      }),
+    )
+    .optional()
+    .describe(
+      'Optional file attachments (images, PDFs, audio, etc.) to send along with the message.',
+    ),
   channel: z
     .string()
     .optional()
@@ -64,13 +74,28 @@ export function buildTools(ctx: ToolContext) {
   return {
     send_message: {
       description:
-        'Send a message to the user. By default sends to the originating channel, but can target any connected channel by name.',
+        'Send a message to the user, optionally with file attachments (images, PDFs, audio, etc.). By default sends to the originating channel, but can target any connected channel by name.',
       parameters: {
         type: 'object' as const,
         properties: {
           content: {
             type: 'string',
             description: 'The message content to send',
+          },
+          attachments: {
+            type: 'array',
+            description:
+              'Optional file attachments to send with the message (images, PDFs, audio, etc.)',
+            items: {
+              type: 'object',
+              properties: {
+                path: {
+                  type: 'string',
+                  description: 'Absolute path to the file',
+                },
+              },
+              required: ['path'],
+            },
           },
           channel: {
             type: 'string',
@@ -88,6 +113,7 @@ export function buildTools(ctx: ToolContext) {
       async handler(args: unknown) {
         const {
           content,
+          attachments: fileAttachments,
           channel: targetChannel,
           sender: targetSender,
         } = sendMessageSchema.parse(args);
@@ -95,7 +121,12 @@ export function buildTools(ctx: ToolContext) {
         const chSender = targetSender ?? ctx.sourceSender;
         const channel = ctx.channels.get(chName);
         if (channel) {
-          await channel.send(chSender, content);
+          const attachments = fileAttachments?.map((a) => ({
+            type: 'file' as const,
+            path: a.path,
+            mimeType: 'application/octet-stream',
+          }));
+          await channel.send(chSender, content, attachments);
           createBotMessage(ctx.db, chName, chSender, content, ctx.taskId);
           return { sent: true, channel: chName };
         }

@@ -31,7 +31,11 @@ export type Channel = {
   readonly name: string;
   start(onMessage: MessageHandler): Promise<void>;
   stop(): Promise<void>;
-  send(sender: string, content: string): Promise<void>;
+  send(
+    sender: string,
+    content: string,
+    attachments?: Attachment[],
+  ): Promise<void>;
   /** Set the handler for slash commands (e.g. /pair, /bootstrap). Called before start(). */
   setCommandHandler?(handler: CommandHandler): void;
 };

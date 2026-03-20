@@ -161,27 +161,42 @@ export class TelegramChannel implements Channel {
     logger.debug('Telegram channel stopped');
   }
 
-  async send(sender: string, content: string): Promise<void> {
+  async send(
+    sender: string,
+    content: string,
+    attachments?: Attachment[],
+  ): Promise<void> {
     if (!this.bot) {
       logger.warn('Telegram: bot not started');
       return;
     }
 
-    if (sender && this.isLinked(sender)) {
-      await this.bot.api.sendMessage(sender, content);
-    } else {
-      const chatIds = [...this.allowList];
-      const results = await Promise.allSettled(
-        chatIds.map(async (chatId) =>
-          this.bot!.api.sendMessage(chatId, content),
-        ),
-      );
-      for (const [i, result] of results.entries()) {
-        if (result.status === 'rejected') {
-          logger.error(
-            `Failed to send to Telegram chat ${chatIds[i]}: ${result.reason}`,
-          );
-        }
+    const targets =
+      sender && this.isLinked(sender) ? [sender] : [...this.allowList];
+
+    const sendToChat = async (chatId: string) => {
+      if (attachments?.length) {
+        const { InputFile } = await import('grammy');
+        const caption = content || undefined;
+        await Promise.allSettled(
+          attachments.map(async (att) => {
+            const file = new InputFile(att.path);
+            await this.bot!.api.sendDocument(chatId, file, { caption });
+          }),
+        );
+      } else {
+        await this.bot!.api.sendMessage(chatId, content);
+      }
+    };
+
+    const results = await Promise.allSettled(
+      targets.map(async (chatId) => sendToChat(chatId)),
+    );
+    for (const [i, result] of results.entries()) {
+      if (result.status === 'rejected') {
+        logger.error(
+          `Failed to send to Telegram chat ${targets[i]}: ${result.reason}`,
+        );
       }
     }
   }
