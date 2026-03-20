@@ -7,7 +7,6 @@
     "cawpilot": "./dist/index.js"
   },
   "scripts": {
-    "postinstall": "node scripts/postinstall.cjs",
     "build": "tsc",
     "dev": "CAWPILOT_WORKSPACE=workspace tsx src/index.ts",
     "start": "node dist/index.js",
@@ -32,7 +31,7 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@github/copilot-sdk": "^0.1.32",
+    "@github/copilot-sdk": "^0.1.33-preview.3",
     "@inquirer/prompts": "^8.3.2",
     "better-sqlite3": "^12.8.0",
     "chalk": "^5.6.2",
