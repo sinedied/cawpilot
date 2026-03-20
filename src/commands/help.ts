@@ -34,8 +34,8 @@ export async function handleHelpCommand(
   sender: string,
 ): Promise<void> {
   const lines = [
-    '📖 **Available Commands**\n',
-    ...commands.map((c) => `• \`/${c.name}\` — ${c.description}`),
+    '📖 Available Commands\n',
+    ...commands.map((c) => `• ${c.name} — ${c.description}`),
   ];
   await channel.send(sender, lines.join('\n'));
 }
