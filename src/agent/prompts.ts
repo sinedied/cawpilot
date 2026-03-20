@@ -10,7 +10,7 @@ You will also receive recent conversation history for context. Use it to determi
 If you need more conversation history to make a decision, use the fetch_history tool to retrieve older messages before producing your output.
 
 Output ONLY a JSON array with objects containing:
-- "title" (short task description)
+- "title" (concise task description based on the LAST message, the most recent)
 - "messageIds" (array of message IDs to include)
 - "contextMessageIds" (optional array) — IDs of specific messages from the conversation history that should be included as extra context for this task. Only include messages that are directly relevant.
 

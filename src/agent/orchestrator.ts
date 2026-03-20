@@ -17,6 +17,7 @@ import {
   getNeedInfoTaskBySender,
   getTaskById,
   updateTaskStatus,
+  updateTaskTitle,
   type Task,
 } from '../db/tasks.js';
 import {
@@ -176,6 +177,10 @@ export class Orchestrator {
       if (needInfoTask) {
         // Attach message to the existing task and resume it
         markMessagesProcessing(this.db, [msg.id], needInfoTask.id);
+        // Update the title to reflect the latest reply
+        const newTitle = msg.content.slice(0, 100);
+        updateTaskTitle(this.db, needInfoTask.id, newTitle);
+        needInfoTask.title = newTitle;
         updateTaskStatus(this.db, needInfoTask.id, 'in-progress');
         logger.info(
           `Resuming need-info task "${needInfoTask.title}" with reply from ${msg.channel}/${msg.sender}`,

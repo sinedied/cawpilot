@@ -85,6 +85,16 @@ export function updateTaskStatus(
   }
 }
 
+export function updateTaskTitle(
+  db: Database.Database,
+  taskId: string,
+  title: string,
+): void {
+  db.prepare(
+    `UPDATE tasks SET title = ?, updated_at = datetime('now') WHERE id = ?`,
+  ).run(title, taskId);
+}
+
 export function setTaskSessionId(
   db: Database.Database,
   taskId: string,
