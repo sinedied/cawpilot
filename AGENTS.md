@@ -115,7 +115,7 @@ npx tsx src/index.ts doctor
 - Config: `<workspace>/.cawpilot/config.json`
 - Database: `<workspace>/.cawpilot/db/data.sqlite`
 - Active skills: `<workspace>/.cawpilot/skills/`
-- Task status: `<workspace>/TODO.md`
+- Task status: tracked in database, visible via `/status` command and dashboard
 
 ## Coding Guidelines
 

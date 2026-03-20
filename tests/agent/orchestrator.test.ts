@@ -58,8 +58,7 @@ describe('cleanup: archiveCompletedTasks', () => {
     expect(existsSync(archiveDir)).toBe(true);
 
     const dateStr = new Date().toISOString().slice(0, 10);
-    const archivePath = join(archiveDir, `TODO-${dateStr}.md`);
-    expect(existsSync(archivePath)).toBe(true);
+    const archivePath = join(archiveDir, `TASKS-${dateStr}.md`);
 
     const content = readFileSync(archivePath, 'utf-8');
     expect(content).toContain('Task A');
@@ -97,7 +96,7 @@ describe('cleanup: archiveCompletedTasks', () => {
       tmpDir,
       '.cawpilot',
       'archive',
-      `TODO-${dateStr}.md`,
+      `TASKS-${dateStr}.md`,
     );
     const content = readFileSync(archivePath, 'utf-8');
 

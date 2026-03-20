@@ -42,7 +42,7 @@ export function archiveCompletedTasks(
   mkdirSync(archiveDir, { recursive: true });
 
   const dateString = new Date().toISOString().slice(0, 10);
-  const archivePath = join(archiveDir, `TODO-${dateString}.md`);
+  const archivePath = join(archiveDir, `TASKS-${dateString}.md`);
 
   if (existsSync(archivePath)) {
     const existing = readFileSync(archivePath, 'utf8');

@@ -1,6 +1,4 @@
 import { execSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import chalk from 'chalk';
 import { type CawpilotConfig, getContextFiles } from '../workspace/config.js';
@@ -14,7 +12,6 @@ import {
 import {
   createTask,
   getActiveTasks,
-  getAllTasks,
   getNeedInfoTaskBySender,
   updateTaskStatus,
   type Task,
@@ -113,8 +110,6 @@ export class Orchestrator {
         markMessagesProcessing(this.db, plan.messageIds, task.id);
         this.dispatchTask(task);
       }
-
-      this.updateTodoFile();
     } catch (error) {
       logger.error(`Failed to process messages: ${error}`);
     }
@@ -170,7 +165,6 @@ export class Orchestrator {
       })
       .finally(() => {
         this.runningTasks.delete(task.id);
-        this.updateTodoFile();
       });
 
     this.runningTasks.set(task.id, taskPromise);
@@ -266,7 +260,6 @@ export class Orchestrator {
       const taskPromise = this.runScheduledTask(task, scheduled.prompt).finally(
         () => {
           this.runningTasks.delete(task.id);
-          this.updateTodoFile();
         },
       );
 
@@ -359,55 +352,8 @@ export class Orchestrator {
     }
   }
 
-  private updateTodoFile(): void {
-    const tasks = getAllTasks(this.db);
-    const statusIcons: Record<string, string> = {
-      pending: '⏳',
-      'in-progress': '🔄',
-      completed: '✅',
-      failed: '❌',
-      'need-info': '❓',
-    };
-
-    const lines = ['# CawPilot Tasks\n'];
-    const active = tasks.filter(
-      (t) => t.status !== 'completed' && t.status !== 'failed',
-    );
-    const done = tasks.filter(
-      (t) => t.status === 'completed' || t.status === 'failed',
-    );
-
-    if (active.length > 0) {
-      lines.push('## Active\n');
-      for (const t of active) {
-        lines.push(
-          `- ${statusIcons[t.status] || '•'} **${t.title}** (${t.status})`,
-        );
-      }
-
-      lines.push('');
-    }
-
-    if (done.length > 0) {
-      lines.push('## Completed\n');
-      for (const t of done.slice(0, 20)) {
-        lines.push(
-          `- ${statusIcons[t.status] || '•'} ${t.title}${t.result ? ` — ${t.result}` : ''}`,
-        );
-      }
-
-      lines.push('');
-    }
-
-    const todoPath = join(this.config.workspacePath, 'TODO.md');
-    writeFileSync(todoPath, lines.join('\n'), 'utf8');
-  }
-
   archiveCompletedTasks(): void {
-    const count = archiveCompletedTasks(this.db, this.config.workspacePath);
-    if (count > 0) {
-      this.updateTodoFile();
-    }
+    archiveCompletedTasks(this.db, this.config.workspacePath);
   }
 
   private autoCleanup(): void {
