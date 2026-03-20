@@ -6,7 +6,7 @@ This file describes the human user that you're assisting. It provides essential 
 
 - **Name**: The user's name or preferred nickname.
 - **Role**: What they do (e.g., software engineer, product manager, designer).
-- **Goals**: What they want to achieve with CawPilot (e.g., automateing tasks, managing GitHub issues, learning new skills).
+- **Goals**: What they want to achieve (e.g., automating tasks, managing GitHub issues, learning new skills).
 - **Preferences**: Any specific preferences they have for communication style, task management, or how you should operate.
 
 ---

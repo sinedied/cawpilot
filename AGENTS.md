@@ -130,6 +130,7 @@ npx tsx src/index.ts doctor
 - **Database**: All SQL in the `db/` module; other modules use the typed functions exported from there
 - **Channel interface**: All channels implement the `Channel` interface from `channels/types.ts`. Channels support cross-channel messaging via the `send_message` tool.
 - **Testing**: Tests in `tests/` mirror `src/` structure. Use in-memory SQLite for DB tests. Use vitest.
+- **No hardcoded branding in bot responses** — The agent's identity comes from `SOUL.md`, not from hardcoded "CawPilot" strings. Never include "CawPilot", product names, or branded prefixes/headers (e.g. `🤖 **CawPilot Status**`) in messages sent to users, task results, archive files, or prompts. The only places where "CawPilot" may appear are: CLI setup/onboarding, the dashboard UI, and doctor diagnostics. Internal type names (e.g. `CawpilotConfig`) and `.cawpilot/` paths are fine.
 
 ## Security Considerations
 
@@ -145,8 +146,8 @@ npx tsx src/index.ts doctor
 
 ## Pull Request Guidelines
 
-- PRs created by CawPilot target `cp-*` branches
-- Title format: `[CawPilot] <description>`
+- PRs target `cp-*` branches
+- Title format: `<description>`
 - Include a summary of changes and the originating user message
 - All code changes should pass `npm run build` and `npm test`
 

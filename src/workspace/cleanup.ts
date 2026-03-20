@@ -28,7 +28,7 @@ export function archiveCompletedTasks(
   };
 
   const archiveLines = [
-    `# CawPilot Tasks Archive — ${new Date().toISOString().slice(0, 10)}\n`,
+    `# Tasks Archive — ${new Date().toISOString().slice(0, 10)}\n`,
   ];
   for (const t of done) {
     archiveLines.push(

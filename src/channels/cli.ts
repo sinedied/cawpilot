@@ -63,7 +63,7 @@ export class CliChannel implements Channel {
   async send(_sender: string, content: string): Promise<void> {
     // Output via stdout — the dashboard refresh will re-print the prompt after
     process.stdout.write(
-      `\n${chalk.cyan('CawPilot')}${chalk.dim(':')} ${content}\n`,
+      `\n${chalk.cyan('>')} ${content}\n`,
     );
     process.stdout.write(chalk.green('> '));
   }
