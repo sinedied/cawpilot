@@ -170,4 +170,80 @@ describe('channels/http', () => {
 
     await http.stop();
   });
+
+  it('has canPushMessages = false', () => {
+    const http = new HttpChannel(0, 'test-key');
+    expect(http.canPushMessages).toBe(false);
+  });
+
+  it('waitForInput intercepts next message from same sender', async () => {
+    let received: ChannelMessage | null = null;
+    const http = new HttpChannel(0, 'test-key');
+    await http.start((msg) => {
+      received = msg;
+    });
+
+    const server = (
+      http as unknown as { server: { address: () => { port: number } } }
+    ).server;
+    const port = server.address().port;
+
+    // Start waiting for input from 'bot-user'
+    const inputPromise = http.waitForInput('bot-user');
+
+    // Send a message from that sender — should be intercepted
+    const res = await fetch(`http://localhost:${port}/api/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Api-Key': 'test-key',
+      },
+      body: JSON.stringify({ sender: 'bot-user', content: 'my answer' }),
+    });
+
+    expect(res.status).toBe(200);
+    const answer = await inputPromise;
+    expect(answer).toBe('my answer');
+    // Should NOT have been dispatched as a regular message
+    expect(received).toBeNull();
+
+    await http.stop();
+  });
+
+  it('waitForInput does not intercept messages from other senders', async () => {
+    let received: ChannelMessage | null = null;
+    const http = new HttpChannel(0, 'test-key');
+    await http.start((msg) => {
+      received = msg;
+    });
+
+    const server = (
+      http as unknown as { server: { address: () => { port: number } } }
+    ).server;
+    const port = server.address().port;
+
+    // Wait for input from 'alice'
+    const _inputPromise = http.waitForInput('alice');
+
+    // Send a message from 'bob' — should NOT be intercepted
+    const res = await fetch(`http://localhost:${port}/api/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Api-Key': 'test-key',
+      },
+      body: JSON.stringify({ sender: 'bob', content: 'hello from bob' }),
+    });
+
+    expect(res.status).toBe(200);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(received).toEqual({
+      channel: 'http',
+      sender: 'bob',
+      content: 'hello from bob',
+      attachments: undefined,
+    });
+
+    await http.stop();
+  });
 });

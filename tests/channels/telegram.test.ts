@@ -30,4 +30,28 @@ describe('channels/telegram', () => {
     expect(list).toContain('bbb');
     expect(list).toHaveLength(2);
   });
+
+  it('has canPushMessages = true', () => {
+    const tg = new TelegramChannel('fake-token', []);
+    expect(tg.canPushMessages).toBe(true);
+  });
+
+  it('waitForInput resolves when called externally', async () => {
+    const tg = new TelegramChannel('fake-token', ['12345']);
+
+    // Start waiting for input from sender 12345
+    const inputPromise = tg.waitForInput('12345');
+
+    // Access private pendingInputs to simulate a message arriving
+    const pendingInputs = (tg as unknown as { pendingInputs: Map<string, (v: string) => void> }).pendingInputs;
+    expect(pendingInputs.has('12345')).toBe(true);
+
+    // Simulate resolving (as the text message handler would)
+    pendingInputs.get('12345')!('user reply');
+    pendingInputs.delete('12345');
+
+    const answer = await inputPromise;
+    expect(answer).toBe('user reply');
+    expect(pendingInputs.has('12345')).toBe(false);
+  });
 });
