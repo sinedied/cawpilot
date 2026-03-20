@@ -15,7 +15,7 @@ When a user asks to expose a local port or create a public URL for a running app
 2. Start a tunnel using `npx tunnelmole` as a background process
 3. Parse the generated `*.tunnelmole.net` URL from the output
 4. Report the public URL back to the user
-5. Create a scheduled task to stop the tunnel after 15 minutes (unless the user specifies a different duration)
+5. Create a run once scheduled task to stop the tunnel after 15 minutes (unless the user specifies a different duration)
 
 ## Important Rules
 
