@@ -10,10 +10,19 @@ param location string = resourceGroup().location
 @description('Container image name for the app service.')
 param appImageName string = ''
 
+@description('GitHub Personal Access Token for gh CLI auth.')
+@secure()
+param ghToken string = ''
+
+@description('Telegram bot token.')
+@secure()
+param telegramToken string = ''
+
 var tags = {
   'azd-env-name': environmentName
 }
 var resourceToken = toLower(uniqueString(subscription().subscriptionId, resourceGroup().id, location))
+var setupKey = uniqueString(resourceGroup().id, subscription().subscriptionId, environmentName, 'setup')
 
 // ---------------------------------------------------------------------------
 // User-Assigned Managed Identity (used for ACR pull)
@@ -143,6 +152,20 @@ module containerApp 'br/public:avm/res/app/container-app:0.21.0' = {
           cpu: json('1')
           memory: '2Gi'
         }
+        env: [
+          {
+            name: 'SETUP_KEY'
+            value: setupKey
+          }
+          {
+            name: 'GH_TOKEN'
+            secretRef: 'gh-token'
+          }
+          {
+            name: 'TELEGRAM_TOKEN'
+            secretRef: 'telegram-token'
+          }
+        ]
         volumeMounts: [
           {
             volumeName: 'workspace-vol'
@@ -151,6 +174,18 @@ module containerApp 'br/public:avm/res/app/container-app:0.21.0' = {
         ]
       }
     ]
+    secrets: {
+      secureList: [
+        {
+          name: 'gh-token'
+          value: ghToken
+        }
+        {
+          name: 'telegram-token'
+          value: telegramToken
+        }
+      ]
+    }
     volumes: [
       {
         name: 'workspace-vol'
@@ -169,3 +204,4 @@ output AZURE_CONTAINER_REGISTRY_ENDPOINT string = acr.outputs.loginServer
 output AZURE_CONTAINER_REGISTRY_NAME string = acr.outputs.name
 output SERVICE_APP_NAME string = containerApp.outputs.name
 output SERVICE_APP_URI string = 'https://${containerApp.outputs.fqdn}'
+output SETUP_URL string = 'https://${containerApp.outputs.fqdn}/setup/?key=${setupKey}'

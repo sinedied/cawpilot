@@ -17,6 +17,10 @@ export type ChannelConfig = {
   allowList?: string[];
 };
 
+export type WebConfig = {
+  setupEnabled: boolean;
+};
+
 export type CawpilotConfig = {
   channels: ChannelConfig[];
   repos: string[];
@@ -29,6 +33,7 @@ export type CawpilotConfig = {
     repo: string;
     backupIntervalDays: number;
   };
+  web: WebConfig;
   provider?: ProviderConfig;
   model: string;
   workspacePath: string;
@@ -45,6 +50,9 @@ const DEFAULT_CONFIG: CawpilotConfig = {
     enabled: false,
     repo: '',
     backupIntervalDays: 1,
+  },
+  web: {
+    setupEnabled: true,
   },
   model: 'gpt-4.1',
   workspacePath: '',

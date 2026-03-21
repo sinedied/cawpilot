@@ -9,7 +9,13 @@
       "value": "${AZURE_LOCATION}"
     },
     "appImageName": {
-      "value": "${SERVICE_APP_IMAGE_NAME=}"
+      "value": "${SERVICE_APP_IMAGE_NAME}"
+    },
+    "ghToken": {
+      "value": "${GH_TOKEN}"
+    },
+    "telegramToken": {
+      "value": "${TELEGRAM_TOKEN}"
     }
   }
 }

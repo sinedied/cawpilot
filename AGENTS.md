@@ -32,8 +32,13 @@ src/
 │   ├── cli.ts            # Readline-based CLI channel (always on, handles /pair)
 │   ├── telegram.ts       # grammy bot with allow-list gating and /pair support
 │   └── http.ts           # Express 5 API with API key auth (timing-safe comparison)
+├── setup/                # Web-based setup wizard (for cloud/container deployment)
+│   ├── server.ts         # Express server for setup mode (port 2243, serves web UI)
+│   ├── routes.ts         # Setup API endpoints (auth, channels, models, skills, complete)
+│   ├── copilot-auth.ts   # Copilot CLI device code relay via SSE
+│   └── env-config.ts     # Env var resolution and step-skip detection
 ├── workspace/            # Repo management, config, persistence
-│   ├── config.ts         # Config types (ChannelConfig, CawpilotConfig), load/save
+│   ├── config.ts         # Config types (ChannelConfig, CawpilotConfig, WebConfig), load/save
 │   ├── manager.ts        # Repo clone/pull, cp-* branch safety, GitHub CLI helpers
 │   └── persistence.ts    # Optional GitHub repo sync for config backup
 ├── db/                   # SQLite layer (better-sqlite3, WAL mode)
@@ -43,8 +48,29 @@ src/
 │   └── scheduled.ts      # Scheduled task CRUD (due detection, toggle, run tracking)
 └── utils/
     └── logger.ts         # Leveled logger with enable/disable (suppressed in dashboard mode)
+web/                      # Lit web components for setup wizard UI (Vite build)
+├── index.html            # Entry HTML
+├── package.json          # lit, vite, typescript
+├── vite.config.ts        # Base /setup/, outputs to dist/web/
+└── src/
+    ├── main.ts           # Component registration
+    ├── setup-app.ts      # Wizard stepper container
+    ├── steps/            # Individual wizard step components
+    │   ├── auth-step.ts       # GitHub + Copilot auth (SSE device code)
+    │   ├── channels-step.ts   # Telegram/HTTP channel config
+    │   ├── model-step.ts      # Model selection dropdown
+    │   ├── skills-step.ts     # Skill checkboxes
+    │   └── complete-step.ts   # Review + save + restart
+    └── lib/
+        ├── api.ts         # Fetch wrapper (auto-attaches X-Setup-Key)
+        └── styles.ts      # Shared Lit CSS
 skills/                   # CawPilot runtime skills (user-selectable)
-└── local-tunnel/SKILL.md # Expose local ports via localtunnel
+cloud/                    # Cloud deployment configurations
+└── azure/                # Azure Container Apps deployment (azd CLI)
+    ├── azure.yaml        # azd service definition
+    └── infra/
+        ├── main.bicep            # AVM Bicep: ACA, ACR, storage, identity, secrets
+        └── main.parameters.json  # Parameters (env name, tokens, image)
 tests/                    # Vitest tests mirroring src/ structure
 ├── db/                   # messages, tasks, scheduled unit tests
 ├── workspace/            # config, manager unit tests
@@ -64,6 +90,8 @@ tests/                    # Vitest tests mirroring src/ structure
 - **Testing**: vitest for unit and integration tests
 - **Workspace**: GitHub CLI (`gh`) for auth and repo operations, git for branch management
 - **Other**: zod for schema validation, localtunnel for tunnel skill
+- **Web setup UI**: Lit web components, Vite for production build, served by Express in setup mode
+- **Cloud deployment**: Azure Container Apps via azd CLI, Bicep with Azure Verified Modules (AVM)
 
 ## Constraints and Requirements
 
@@ -82,7 +110,8 @@ tests/                    # Vitest tests mirroring src/ structure
 
 ```bash
 npm install          # Install dependencies
-npm run build        # Compile TypeScript to dist/
+npm run build        # Compile TypeScript to dist/ and web UI to dist/web/
+npm run build:web    # Build web setup UI only (Vite)
 npm run dev          # Run with tsx (development)
 npm start            # Run compiled output
 npm test             # Run tests (vitest)
@@ -141,6 +170,8 @@ npx tsx src/index.ts doctor
 - **Branch safety enforcement** — workspace manager rejects any git write operation not targeting a `cp-*` branch
 - **Pairing system** — `/pair` generates 8-char codes (XXXX-XXXX) valid for 5 minutes. Only linked channels or CLI can generate codes. `/pair <code>` from an unlinked channel completes linking. Allow lists persisted to config.
 - **HTTP API key** — generated during setup, required in `X-Api-Key` header, validated with timing-safe comparison
+- **Web setup key** — generated in Bicep infra (`uniqueString`), passed as `SETUP_KEY` env var, required in `X-Setup-Key` header for all `/api/setup/*` routes, validated with timing-safe comparison
+- **Web setup deactivation** — `web.setupEnabled` config flag set to `false` after setup completes; can be re-enabled manually in config.json
 - **Unlinked message dropping** — Telegram messages from senders not in the allow list are silently dropped (never stored)
 - **Sandboxed operations** — the agent operates only within the workspace directory
 - **Permission handling** — Copilot SDK tool executions are auto-approved since we control the environment
@@ -160,6 +191,36 @@ npx tsx src/index.ts doctor
 - SQLite database can be inspected directly at `<workspace>/.cawpilot/db/data.sqlite`
 - Copilot SDK supports `logLevel: "debug"` for SDK-level debugging
 - Dashboard notification line shows pairing events, errors, and channel status
+
+### Azure Deployment
+
+```bash
+# Deploy to Azure Container Apps (one command)
+cd cloud/azure
+azd up
+
+# After deployment, azd outputs SETUP_URL — open it to complete setup
+# Optionally pre-configure secrets:
+azd env set GH_TOKEN ghp_...
+azd env set TELEGRAM_TOKEN 123:ABC...
+azd up
+```
+
+**Setup flow**: `azd up` → container starts in setup mode → open SETUP_URL → complete wizard (GitHub auth, Copilot auth via device code, channels, model, skills) → container restarts into normal mode.
+
+**Environment variables** (optional, pre-fill/skip setup steps):
+- `SETUP_KEY` — one-time setup wizard key (generated by Bicep)
+- `GH_TOKEN` — GitHub personal access token (skips GH auth step if valid)
+- `TELEGRAM_TOKEN` — Telegram bot token (pre-fills channel config)
+- `COPILOT_MODEL` — default model ID override
+
+### Web Setup Mode
+
+When `SETUP_KEY` env var is present and either no config exists or `web.setupEnabled` is `true`, the `start` command enters **setup mode** instead of normal operation:
+- Serves Lit web UI at `/setup/` on port 2243
+- Exposes `/api/setup/*` routes (protected by setup key)
+- After setup completes, sets `web.setupEnabled: false` and exits
+- Container auto-restarts into normal mode
 
 ## Workflow
 

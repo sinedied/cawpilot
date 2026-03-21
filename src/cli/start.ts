@@ -4,6 +4,7 @@ import chalk from 'chalk';
 import { render } from 'ink';
 import {
   loadConfig,
+  configExists,
   getDbPath,
   getAttachmentsPath,
 } from '../workspace/config.js';
@@ -35,6 +36,22 @@ export async function runStart(
   options?: StartOptions,
 ): Promise<void> {
   const { debug } = options ?? { debug: false };
+
+  // Check if web setup mode is needed
+  const setupKey = process.env.SETUP_KEY;
+  if (setupKey) {
+    const hasConfig = configExists(workspacePath);
+    const config = loadConfig(workspacePath);
+    const needsSetup = !hasConfig || config.web?.setupEnabled;
+
+    if (needsSetup) {
+      logger.info('Entering web setup mode');
+      const { runSetupServer } = await import('../setup/server.js');
+      await runSetupServer(workspacePath);
+      return;
+    }
+  }
+
   const config = loadConfig(workspacePath);
   config.workspacePath = workspacePath;
   const startTime = new Date();
