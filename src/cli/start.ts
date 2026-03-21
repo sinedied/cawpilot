@@ -199,6 +199,10 @@ export async function runStart(
       cliChannel.handleLine(text);
     };
 
+    // Remove global SIGINT/SIGTERM handlers so only Ink's exitOnCtrlC handles Ctrl+C
+    process.removeAllListeners('SIGINT');
+    process.removeAllListeners('SIGTERM');
+
     // Enter alternate screen buffer
     process.stdout.write('\u001B[?1049h');
 
