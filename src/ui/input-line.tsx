@@ -15,8 +15,15 @@ export function InputLine({ onSubmit, onScroll }: InputLineProps) {
   };
 
   const updateValue = (next: string, cursor?: number) => {
-    valueRef.current = next;
-    cursorRef.current = cursor ?? next.length;
+    // Single chokepoint: ensure value never contains non-printable characters
+    const clean = [...next]
+      .filter((ch) => {
+        const cp = ch.codePointAt(0)!;
+        return cp >= 32 && cp !== 127;
+      })
+      .join('');
+    valueRef.current = clean;
+    cursorRef.current = Math.min(cursor ?? clean.length, clean.length);
     rerender();
   };
 

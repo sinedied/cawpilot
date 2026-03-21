@@ -128,6 +128,8 @@ export function App({ db, startTime, onInput }: AppProps) {
   }, []);
 
   const handleSubmit = (text: string) => {
+    if (!text) return;
+
     // Add user message to chat
     setMessages((prev) => {
       const next = [...prev, { sender: 'user' as const, content: text }];
