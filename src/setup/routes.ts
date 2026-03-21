@@ -163,7 +163,7 @@ export function createSetupRouter(
           allowList: c.allowList ?? [],
         }),
         ...(c.type === 'http' && {
-          httpPort: c.httpPort ?? 3000,
+          httpPort: c.httpPort ?? 2243,
           httpApiKey: c.httpApiKey ?? randomBytes(24).toString('base64url'),
         }),
       }));

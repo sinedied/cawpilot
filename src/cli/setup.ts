@@ -220,7 +220,7 @@ async function setupChannels(
   if (selected.includes('http')) {
     const port = await input({
       message: 'HTTP API port:',
-      default: String(existingHttp?.httpPort ?? 3000),
+      default: String(existingHttp?.httpPort ?? 2243),
     });
     const apiKey =
       existingHttp?.httpApiKey ?? randomBytes(24).toString('base64url');

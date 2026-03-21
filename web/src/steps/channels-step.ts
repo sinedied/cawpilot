@@ -64,7 +64,7 @@ export class ChannelsStep extends LitElement {
       channels.push({
         type: 'http',
         enabled: true,
-        httpPort: 3000,
+        httpPort: 2243,
       });
     }
 
@@ -125,7 +125,7 @@ export class ChannelsStep extends LitElement {
           </label>
         </div>
         <div class="channel-hint">
-          API key will be auto-generated. Port: 3000.
+          API key will be auto-generated. Port: 2243.
         </div>
       </div>
     `;

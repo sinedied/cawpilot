@@ -108,7 +108,7 @@ export function buildChannelsFromEnv(
     channels.push({
       type: 'http',
       enabled: true,
-      httpPort: 3000,
+      httpPort: 2243,
       httpApiKey: randomBytes(24).toString('base64url'),
     });
   }

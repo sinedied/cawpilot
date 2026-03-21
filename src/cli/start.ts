@@ -89,7 +89,7 @@ export async function runStart(
 
     if (chConfig.type === 'http') {
       const http = new HttpChannel(
-        chConfig.httpPort ?? 3000,
+        chConfig.httpPort ?? 2243,
         chConfig.httpApiKey,
       );
       http.setAttachmentsDir(getAttachmentsPath(workspacePath));

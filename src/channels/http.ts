@@ -24,7 +24,7 @@ export class HttpChannel implements Channel {
   private readonly pendingInputs = new Map<string, (value: string) => void>();
 
   constructor(
-    private readonly port = 3000,
+    private readonly port = 2243,
     private readonly apiKey?: string,
   ) {}
 
