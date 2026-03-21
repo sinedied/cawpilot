@@ -62,7 +62,9 @@ export class SkillsStep extends LitElement {
       </div>
 
       ${this.available.length === 0
-        ? html`<div style="color:#8b949e">No skills available.</div>`
+        ? html`<div style="color:var(--cp-text-secondary)">
+            No skills available.
+          </div>`
         : html`
             <div class="checkbox-list">
               ${this.available.map(

@@ -10,7 +10,7 @@
     "build": "tsc && npm run build:web",
     "build:web": "cd web && npm ci --ignore-scripts && npm run build",
     "dev": "CAWPILOT_WORKSPACE=workspace tsx src/index.ts",
-    "dev:setup": "SETUP_KEY=test CAWPILOT_WORKSPACE=workspace tsx src/index.ts start",
+    "dev:setup": "SETUP_KEY=test CAWPILOT_WORKSPACE=workspace_setup tsx src/index.ts start",
     "start": "node dist/index.js",
     "clean": "rm -rf dist",
     "test": "vitest run",

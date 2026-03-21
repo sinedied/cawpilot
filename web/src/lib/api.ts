@@ -1,7 +1,7 @@
 let setupKey = '';
 
 export function initApi() {
-  const params = new URLSearchParams(window.location.search);
+  const params = new URLSearchParams(globalThis.location.search);
   setupKey = params.get('key') ?? '';
 }
 

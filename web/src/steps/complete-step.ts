@@ -11,23 +11,30 @@ export class CompleteStep extends LitElement {
       .summary-item {
         display: flex;
         justify-content: space-between;
-        padding: 0.5rem 0;
-        border-bottom: 1px solid #21262d;
-        font-size: 0.875rem;
+        padding: var(--cp-space-sm) 0;
+        border-bottom: 1px solid var(--cp-border-subtle);
+        font-size: var(--cp-text-sm);
       }
       .summary-item:last-child {
         border-bottom: none;
       }
       .summary-label {
-        color: #8b949e;
+        color: var(--cp-text-secondary);
       }
       .done-message {
         text-align: center;
-        padding: 2rem;
+        padding: var(--cp-space-xl);
       }
       .done-message h2 {
-        color: #3fb950;
-        margin-bottom: 1rem;
+        color: var(--cp-success);
+        margin-bottom: var(--cp-space-md);
+      }
+      .done-message p {
+        color: var(--cp-text-secondary);
+      }
+      .done-message .hint {
+        margin-top: var(--cp-space-md);
+        font-size: var(--cp-text-xs);
       }
     `,
   ];
@@ -45,10 +52,8 @@ export class CompleteStep extends LitElement {
       return html`
         <div class="done-message">
           <h2>✓ Setup Complete!</h2>
-          <p style="color:#8b949e">
-            Your agent is restarting and will be ready shortly.
-          </p>
-          <p style="color:#8b949e;margin-top:1rem;font-size:0.8rem">
+          <p>Your agent is restarting and will be ready shortly.</p>
+          <p class="hint">
             You can close this page. Use /pair from the CLI or Telegram to link
             your account.
           </p>
@@ -78,7 +83,7 @@ export class CompleteStep extends LitElement {
       </div>
 
       ${this.error
-        ? html`<div class="status-error" style="margin-bottom:1rem">
+        ? html`<div class="status-error" style="margin-bottom:var(--cp-space-md)">
             ${this.error}
           </div>`
         : ''}

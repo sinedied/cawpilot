@@ -4,7 +4,7 @@ dist
 .gitignore
 .DS_Store
 *.env*
-workspace
+/workspace*/
 .agents
 tests
 vitest.config.ts

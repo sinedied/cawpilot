@@ -8,21 +8,25 @@ export class ChannelsStep extends LitElement {
     sharedStyles,
     css`
       .channel-card {
-        background: #161b22;
-        border: 1px solid #30363d;
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 1rem;
+        background: var(--cp-bg-surface);
+        border: 1px solid var(--cp-border);
+        border-radius: var(--cp-radius-md);
+        padding: var(--cp-space-md);
+        margin-bottom: var(--cp-space-md);
       }
       .channel-header {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: var(--cp-space-sm);
         margin-bottom: 0.75rem;
         font-weight: 600;
       }
       .channel-toggle {
         margin-left: auto;
+      }
+      .channel-hint {
+        font-size: var(--cp-text-xs);
+        color: var(--cp-text-secondary);
       }
     `,
   ];
@@ -120,7 +124,7 @@ export class ChannelsStep extends LitElement {
             />
           </label>
         </div>
-        <div style="font-size:0.8rem;color:#8b949e">
+        <div class="channel-hint">
           API key will be auto-generated. Port: 3000.
         </div>
       </div>

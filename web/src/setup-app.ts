@@ -10,6 +10,14 @@ import type { SkillsStep } from './steps/skills-step.js';
 const STEPS = ['auth', 'channels', 'model', 'skills', 'complete'] as const;
 type StepName = (typeof STEPS)[number];
 
+const STEP_LABELS: Record<StepName, string> = {
+  auth: 'Auth',
+  channels: 'Channels',
+  model: 'Model',
+  skills: 'Skills',
+  complete: 'Launch',
+};
+
 @customElement('setup-app')
 export class SetupApp extends LitElement {
   static override styles = [
@@ -20,64 +28,139 @@ export class SetupApp extends LitElement {
         width: 100%;
       }
 
+      /* ── Header ─────────────────────── */
       .header {
         text-align: center;
-        margin-bottom: 2rem;
+        margin-bottom: var(--cp-space-xl);
+      }
+
+      .header-logo {
+        width: 72px;
+        height: 72px;
+        border-radius: var(--cp-radius-lg);
+        margin-bottom: var(--cp-space-md);
       }
 
       .header h1 {
-        font-size: 1.75rem;
+        font-size: var(--cp-text-2xl);
         font-weight: 700;
-        margin-bottom: 0.25rem;
+        margin-bottom: 4px;
       }
 
       .header p {
-        color: #8b949e;
-        font-size: 0.9rem;
+        color: var(--cp-text-secondary);
+        font-size: var(--cp-text-sm);
       }
 
+      /* ── Theme toggle ───────────────── */
+      .theme-toggle {
+        position: fixed;
+        top: var(--cp-space-md);
+        right: var(--cp-space-md);
+        background: var(--cp-bg-surface);
+        border: 1px solid var(--cp-border);
+        border-radius: var(--cp-radius-full);
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 1.1rem;
+        transition: background var(--cp-transition);
+        z-index: 10;
+        color: var(--cp-text);
+      }
+
+      .theme-toggle:hover {
+        background: var(--cp-bg-elevated);
+      }
+
+      /* ── Stepper ────────────────────── */
       .stepper {
         display: flex;
-        gap: 0.25rem;
-        margin-bottom: 2rem;
+        gap: 4px;
+        margin-bottom: var(--cp-space-xl);
       }
 
-      .stepper-dot {
+      .stepper-segment {
         flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .stepper-bar {
+        width: 100%;
         height: 4px;
         border-radius: 2px;
-        background: #21262d;
+        background: var(--cp-border-subtle);
         transition: background 0.3s;
       }
 
-      .stepper-dot.active {
-        background: #58a6ff;
+      .stepper-bar.active {
+        background: var(--cp-gradient);
       }
 
-      .stepper-dot.done {
-        background: #238636;
+      .stepper-bar.done {
+        background: var(--cp-success);
       }
 
+      .stepper-label {
+        font-size: var(--cp-text-xs);
+        color: var(--cp-text-muted);
+        transition: color var(--cp-transition);
+      }
+
+      .stepper-label.active {
+        color: var(--cp-text);
+        font-weight: 600;
+      }
+
+      /* ── Content ────────────────────── */
       .step-content {
         min-height: 200px;
       }
 
+      /* ── Navigation ─────────────────── */
       .nav {
         display: flex;
         justify-content: space-between;
-        margin-top: 2rem;
-        padding-top: 1rem;
-        border-top: 1px solid #21262d;
+        margin-top: var(--cp-space-xl);
+        padding-top: var(--cp-space-md);
+        border-top: 1px solid var(--cp-border-subtle);
       }
 
+      .nav .btn {
+        min-width: 100px;
+      }
+
+      /* ── Error ──────────────────────── */
       .error-banner {
-        background: #3d1519;
-        border: 1px solid #f85149;
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 1.5rem;
-        color: #f85149;
+        background: var(--cp-error-bg);
+        border: 1px solid var(--cp-error-border);
+        border-radius: var(--cp-radius-md);
+        padding: var(--cp-space-md);
+        margin-bottom: var(--cp-space-lg);
+        color: var(--cp-error);
         text-align: center;
+      }
+
+      /* ── Responsive ─────────────────── */
+      @media (max-width: 480px) {
+        .stepper-label {
+          display: none;
+        }
+
+        .header-logo {
+          width: 56px;
+          height: 56px;
+        }
+
+        .header h1 {
+          font-size: var(--cp-text-xl);
+        }
       }
     `,
   ];
@@ -86,10 +169,16 @@ export class SetupApp extends LitElement {
   @state() authorized = false;
   @state() authError = '';
   @state() telegramTokenFromEnv = '';
+  @state() authComplete = false;
+  @state() theme: 'dark' | 'light' = 'dark';
 
   override connectedCallback() {
     super.connectedCallback();
     initApi();
+    this.theme =
+      (document.documentElement.getAttribute('data-theme') as
+        | 'dark'
+        | 'light') || 'dark';
     void this.checkAuth();
   }
 
@@ -113,14 +202,25 @@ export class SetupApp extends LitElement {
     }
   }
 
+  private toggleTheme() {
+    this.theme = this.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', this.theme);
+    localStorage.setItem('cp-theme', this.theme);
+  }
+
   private get currentIndex() {
     return STEPS.indexOf(this.currentStep);
+  }
+
+  // Called by auth-step when its completion state changes
+  handleAuthChange(e: Event) {
+    const authStep = e.target as AuthStep;
+    this.authComplete = authStep.isComplete;
   }
 
   private next() {
     const idx = this.currentIndex;
     if (idx < STEPS.length - 1) {
-      // On the "complete" step, gather data from previous steps
       if (STEPS[idx + 1] === 'complete') {
         this.prepareComplete();
       }
@@ -147,8 +247,6 @@ export class SetupApp extends LitElement {
       | ChannelsStep
       | undefined;
 
-    // Data will be read from steps when complete-step saves
-    // Store references for the complete step
     this._pendingModel = modelStep?.model ?? 'gpt-4.1';
     this._pendingSkills = skillsStep?.skills ?? [];
     this._pendingChannels = channelsStep?.channels ?? [];
@@ -160,10 +258,7 @@ export class SetupApp extends LitElement {
 
   private get canProceed() {
     if (this.currentStep === 'auth') {
-      const authStep = this.shadowRoot?.querySelector('auth-step') as
-        | AuthStep
-        | undefined;
-      return authStep?.isComplete ?? false;
+      return this.authComplete;
     }
 
     return true;
@@ -173,7 +268,12 @@ export class SetupApp extends LitElement {
     if (this.authError) {
       return html`
         <div class="header">
-          <h1>CawPilot Setup</h1>
+          <img
+            class="header-logo"
+            src="${import.meta.env.BASE_URL}logo.png"
+            alt=""
+          />
+          <h1 class="gradient-text">CawPilot Setup</h1>
         </div>
         <div class="error-banner">${this.authError}</div>
       `;
@@ -182,28 +282,52 @@ export class SetupApp extends LitElement {
     if (!this.authorized) {
       return html`
         <div class="header">
-          <h1>CawPilot Setup</h1>
+          <img
+            class="header-logo"
+            src="${import.meta.env.BASE_URL}logo.png"
+            alt=""
+          />
+          <h1 class="gradient-text">CawPilot Setup</h1>
           <p><span class="spinner"></span> Connecting...</p>
         </div>
       `;
     }
 
     return html`
+      <button
+        class="theme-toggle"
+        @click=${this.toggleTheme}
+        title="Toggle theme"
+      >
+        ${this.theme === 'dark' ? '☀️' : '🌙'}
+      </button>
+
       <div class="header">
-        <h1>CawPilot Setup</h1>
+        <img
+          class="header-logo"
+          src="${import.meta.env.BASE_URL}logo.png"
+          alt=""
+        />
+        <h1 class="gradient-text">CawPilot Setup</h1>
         <p>Configure your agent in a few steps.</p>
       </div>
 
       <div class="stepper">
         ${STEPS.map(
           (step, i) => html`
-            <div
-              class="stepper-dot ${i < this.currentIndex
-                ? 'done'
-                : i === this.currentIndex
-                  ? 'active'
-                  : ''}"
-            ></div>
+            <div class="stepper-segment">
+              <div
+                class="stepper-bar ${i < this.currentIndex
+                  ? 'done'
+                  : i === this.currentIndex
+                    ? 'active'
+                    : ''}"
+              ></div>
+              <span
+                class="stepper-label ${i === this.currentIndex ? 'active' : ''}"
+                >${STEP_LABELS[step]}</span
+              >
+            </div>
           `,
         )}
       </div>
@@ -236,7 +360,9 @@ export class SetupApp extends LitElement {
   private renderStep() {
     switch (this.currentStep) {
       case 'auth':
-        return html`<auth-step></auth-step>`;
+        return html`<auth-step
+          @auth-changed=${this.handleAuthChange}
+        ></auth-step>`;
       case 'channels':
         return html`<channels-step
           .telegramToken=${this.telegramTokenFromEnv}

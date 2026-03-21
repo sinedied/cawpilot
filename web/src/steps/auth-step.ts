@@ -9,15 +9,15 @@ export class AuthStep extends LitElement {
     sharedStyles,
     css`
       .section {
-        margin-bottom: 1.5rem;
+        margin-bottom: var(--cp-space-lg);
       }
       .section-title {
-        font-size: 0.9rem;
+        font-size: var(--cp-text-sm);
         font-weight: 600;
-        margin-bottom: 0.5rem;
+        margin-bottom: var(--cp-space-sm);
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: var(--cp-space-sm);
       }
     `,
   ];
@@ -39,6 +39,12 @@ export class AuthStep extends LitElement {
     void this.checkStatus();
   }
 
+  private notifyChange() {
+    this.dispatchEvent(
+      new CustomEvent('auth-changed', { bubbles: true, composed: true }),
+    );
+  }
+
   private async checkStatus() {
     try {
       const gh = await api<{ authenticated: boolean; user?: string }>(
@@ -57,6 +63,8 @@ export class AuthStep extends LitElement {
     } catch {
       // Status checks are non-critical
     }
+
+    this.notifyChange();
   }
 
   private async submitGhToken() {
@@ -84,6 +92,7 @@ export class AuthStep extends LitElement {
     }
 
     this.ghLoading = false;
+    this.notifyChange();
   }
 
   private startCopilotLogin() {
@@ -98,7 +107,8 @@ export class AuthStep extends LitElement {
         switch (event.type) {
           case 'code': {
             this.copilotCode = event.code as string;
-            this.copilotUrl = (event.url as string) || 'https://github.com/login/device';
+            this.copilotUrl =
+              (event.url as string) || 'https://github.com/login/device';
             break;
           }
 
@@ -106,6 +116,7 @@ export class AuthStep extends LitElement {
             this.copilotLogin = (event.login as string) || 'authenticated';
             this.copilotLoading = false;
             this.copilotCode = '';
+            this.notifyChange();
             break;
           }
 
@@ -193,7 +204,9 @@ export class AuthStep extends LitElement {
           : this.copilotCode
             ? html`
                 <div class="info-box">
-                  <div style="color:#8b949e;margin-bottom:0.5rem">
+                  <div
+                    style="color:var(--cp-text-secondary);margin-bottom:0.5rem"
+                  >
                     Enter this code at:
                   </div>
                   <div class="code-display">${this.copilotCode}</div>
@@ -202,12 +215,11 @@ export class AuthStep extends LitElement {
                       href="${this.copilotUrl}"
                       target="_blank"
                       rel="noopener"
-                      style="color:#58a6ff"
                       >${this.copilotUrl}</a
                     >
                   </div>
                   <div
-                    style="text-align:center;margin-top:1rem;color:#8b949e;font-size:0.8rem"
+                    style="text-align:center;margin-top:1rem;color:var(--cp-text-secondary);font-size:var(--cp-text-xs)"
                   >
                     <span class="spinner"></span> Waiting for authorization...
                   </div>
@@ -224,17 +236,16 @@ export class AuthStep extends LitElement {
                     : 'Start Copilot Login'}
                 </button>
                 ${this.copilotError
-                  ? html`<div
-                      class="status-error"
-                      style="margin-top:0.5rem"
-                    >
+                  ? html`<div class="status-error" style="margin-top:0.5rem">
                       ${this.copilotError}
                     </div>`
                   : ''}
                 ${this.copilotRaw.length > 0
                   ? html`<pre
-                      style="margin-top:0.5rem;font-size:0.75rem;color:#8b949e;white-space:pre-wrap"
-                    >${this.copilotRaw.join('\n')}</pre>`
+                      style="margin-top:0.5rem;font-size:var(--cp-text-xs);color:var(--cp-text-secondary);white-space:pre-wrap"
+                    >
+${this.copilotRaw.join('\n')}</pre
+                    >`
                   : ''}
               `}
       </div>

@@ -190,12 +190,22 @@ async function setupChannels(
   const channels: ChannelConfig[] = [];
 
   if (selected.includes('telegram')) {
-    const token = await input({
-      message: 'Telegram Bot Token (from BotFather):',
-      default: existingTg?.telegramToken ?? '',
-      transformer: (value) =>
-        value ? '•'.repeat(Math.min(value.length, 20)) : '',
-    });
+    const envToken = process.env.TELEGRAM_TOKEN;
+    const defaultToken = envToken ?? existingTg?.telegramToken ?? '';
+    let token: string;
+
+    if (envToken) {
+      token = envToken;
+      console.log(chalk.dim('  Telegram token loaded from environment.'));
+    } else {
+      token = await input({
+        message: 'Telegram Bot Token (from BotFather):',
+        default: defaultToken,
+        transformer: (value) =>
+          value ? '•'.repeat(Math.min(value.length, 20)) : '',
+      });
+    }
+
     channels.push({
       type: 'telegram',
       enabled: true,

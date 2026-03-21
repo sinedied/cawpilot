@@ -9,9 +9,9 @@ export class ModelStep extends LitElement {
     sharedStyles,
     css`
       .model-info {
-        font-size: 0.8rem;
-        color: #8b949e;
-        margin-top: 0.5rem;
+        font-size: var(--cp-text-xs);
+        color: var(--cp-text-secondary);
+        margin-top: var(--cp-space-sm);
       }
     `,
   ];
