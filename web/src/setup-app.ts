@@ -6,8 +6,16 @@ import type { AuthStep } from './steps/auth-step.js';
 import type { ChannelsStep } from './steps/channels-step.js';
 import type { ModelStep } from './steps/model-step.js';
 import type { SkillsStep } from './steps/skills-step.js';
+import type { PersistenceStep } from './steps/persistence-step.js';
 
-const STEPS = ['auth', 'channels', 'model', 'skills', 'complete'] as const;
+const STEPS = [
+  'auth',
+  'channels',
+  'model',
+  'skills',
+  'backup',
+  'complete',
+] as const;
 type StepName = (typeof STEPS)[number];
 
 const STEP_LABELS: Record<StepName, string> = {
@@ -15,6 +23,7 @@ const STEP_LABELS: Record<StepName, string> = {
   channels: 'Channels',
   model: 'Model',
   skills: 'Skills',
+  backup: 'Backup',
   complete: 'Launch',
 };
 
@@ -170,6 +179,7 @@ export class SetupApp extends LitElement {
   @state() authError = '';
   @state() telegramTokenFromEnv = '';
   @state() authComplete = false;
+  @state() ghUser = '';
   @state() theme: 'dark' | 'light' = 'dark';
 
   override connectedCallback() {
@@ -216,6 +226,9 @@ export class SetupApp extends LitElement {
   handleAuthChange(e: Event) {
     const authStep = e.target as AuthStep;
     this.authComplete = authStep.isComplete;
+    if (authStep.ghUser) {
+      this.ghUser = authStep.ghUser;
+    }
   }
 
   private next() {
@@ -247,14 +260,28 @@ export class SetupApp extends LitElement {
       | ChannelsStep
       | undefined;
 
+    const persistenceStep = this.shadowRoot?.querySelector(
+      'persistence-step',
+    ) as PersistenceStep | undefined;
+
     this._pendingModel = modelStep?.model ?? 'gpt-4.1';
     this._pendingSkills = skillsStep?.skills ?? [];
     this._pendingChannels = channelsStep?.channels ?? [];
+    this._pendingPersistence = persistenceStep?.persistence ?? {
+      enabled: false,
+      repo: '',
+      backupIntervalDays: 1,
+    };
   }
 
   private _pendingModel = '';
   private _pendingSkills: string[] = [];
   private _pendingChannels: unknown[] = [];
+  private _pendingPersistence: {
+    enabled: boolean;
+    repo: string;
+    backupIntervalDays: number;
+  } = { enabled: false, repo: '', backupIntervalDays: 1 };
 
   private get canProceed() {
     if (this.currentStep === 'auth') {
@@ -334,16 +361,16 @@ export class SetupApp extends LitElement {
 
       <div class="step-content">${this.renderStep()}</div>
 
-      ${this.currentStep !== 'complete'
-        ? html`
-            <div class="nav">
-              <button
-                class="btn"
-                ?disabled=${this.currentIndex === 0}
-                @click=${this.back}
-              >
-                ← Back
-              </button>
+      <div class="nav">
+        <button
+          class="btn"
+          ?disabled=${this.currentIndex === 0}
+          @click=${this.back}
+        >
+          ← Back
+        </button>
+        ${this.currentStep !== 'complete'
+          ? html`
               <button
                 class="btn btn-primary"
                 ?disabled=${!this.canProceed}
@@ -351,9 +378,9 @@ export class SetupApp extends LitElement {
               >
                 Next →
               </button>
-            </div>
-          `
-        : ''}
+            `
+          : ''}
+      </div>
     `;
   }
 
@@ -371,11 +398,16 @@ export class SetupApp extends LitElement {
         return html`<model-step></model-step>`;
       case 'skills':
         return html`<skills-step></skills-step>`;
+      case 'backup':
+        return html`<persistence-step
+          .ghUser=${this.ghUser}
+        ></persistence-step>`;
       case 'complete': {
         return html`<complete-step
           .model=${this._pendingModel}
           .skills=${this._pendingSkills}
           .channels=${this._pendingChannels}
+          .persistence=${this._pendingPersistence}
         ></complete-step>`;
       }
     }

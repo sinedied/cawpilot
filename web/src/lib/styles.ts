@@ -38,6 +38,7 @@ export const sharedStyles = css`
   .field input,
   .field select {
     width: 100%;
+    box-sizing: border-box;
     padding: var(--cp-space-sm) 0.75rem;
     background: var(--cp-input-bg);
     border: 1px solid var(--cp-border);

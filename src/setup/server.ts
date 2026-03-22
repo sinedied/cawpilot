@@ -3,9 +3,11 @@ import { existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
+import chalk from 'chalk';
 import { ensureWorkspace } from '../workspace/manager.js';
 import { loadEnvFile } from '../workspace/env.js';
 import { logger } from '../utils/logger.js';
+import { renderBanner, gradientText } from '../ui/banner.js';
 import { createSetupRouter } from './routes.js';
 
 const SETUP_PORT = 2243;
@@ -45,8 +47,14 @@ export async function runSetupServer(workspacePath: string): Promise<void> {
   const server = app.listen(SETUP_PORT, () => {
     const url = `http://localhost:${SETUP_PORT}/setup/?key=${setupKey}`;
     logger.info(`Setup server running at ${url}`);
-    console.log(`\n  Setup server ready.`);
-    console.log(`  Open: ${url}\n`);
+
+    console.log('\n' + renderBanner() + '\n');
+    console.log(chalk.bold('  Web Setup Mode\n'));
+    console.log('  Open this URL to complete setup:\n');
+    console.log('  ' + gradientText(url) + '\n');
+    console.log(
+      chalk.dim('  Waiting for setup to complete... (Ctrl+C to cancel)\n'),
+    );
   });
 
   // Graceful shutdown

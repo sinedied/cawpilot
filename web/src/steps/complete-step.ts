@@ -46,16 +46,24 @@ export class CompleteStep extends LitElement {
   model = '';
   skills: string[] = [];
   channels: unknown[] = [];
+  persistence: { enabled: boolean; repo: string; backupIntervalDays: number } =
+    { enabled: false, repo: '', backupIntervalDays: 1 };
 
   override render() {
     if (this.done) {
       return html`
         <div class="done-message">
           <h2>✓ Setup Complete!</h2>
-          <p>Your agent is restarting and will be ready shortly.</p>
+          <p>
+            Configuration saved. The agent process will now exit and needs to be
+            restarted to enter normal mode.
+          </p>
           <p class="hint">
-            You can close this page. Use /pair from the CLI or Telegram to link
-            your account.
+            In a container deployment, the restart is automatic. Locally, run
+            <code>cawpilot start</code> again.
+          </p>
+          <p class="hint">
+            Use /pair from the CLI or Telegram to link your account.
           </p>
         </div>
       `;
@@ -79,6 +87,14 @@ export class CompleteStep extends LitElement {
         <div class="summary-item">
           <span class="summary-label">Channels</span>
           <span>${this.channels.length} configured</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Backup</span>
+          <span>
+            ${this.persistence.enabled
+              ? this.persistence.repo
+              : 'Disabled'}
+          </span>
         </div>
       </div>
 
@@ -112,6 +128,7 @@ export class CompleteStep extends LitElement {
           model: this.model,
           skills: this.skills,
           channels: this.channels,
+          persistence: this.persistence,
         }),
       });
       this.done = true;

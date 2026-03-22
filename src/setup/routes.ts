@@ -180,6 +180,11 @@ export function createSetupRouter(
       model?: string;
       skills?: string[];
       channels?: ChannelConfig[];
+      persistence?: {
+        enabled: boolean;
+        repo: string;
+        backupIntervalDays: number;
+      };
     };
 
     const config = loadConfig(workspacePath);
@@ -196,6 +201,10 @@ export function createSetupRouter(
     }
 
     config.channels = body.channels ?? buildChannelsFromEnv(config.channels);
+
+    if (body.persistence) {
+      config.persistence = body.persistence;
+    }
 
     // Disable web setup
     config.web = { setupEnabled: false };

@@ -94,7 +94,7 @@ export class ChannelsStep extends LitElement {
         ${this.telegramEnabled
           ? html`
               <div class="field">
-                <label>Bot Token (from BotFather)</label>
+                <label>Bot Token</label>
                 <input
                   type="password"
                   placeholder="123456:ABC-DEF..."
@@ -104,8 +104,15 @@ export class ChannelsStep extends LitElement {
                   }}
                 />
               </div>
-              <div style="font-size:0.8rem;color:#8b949e">
-                Use /pair after starting to link your Telegram account.
+              <div class="channel-hint">
+                Get your token from
+                <a
+                  href="https://t.me/BotFather"
+                  target="_blank"
+                  rel="noopener"
+                  >@BotFather</a
+                >
+                on Telegram. Use /pair after starting to link your account.
               </div>
             `
           : ''}
