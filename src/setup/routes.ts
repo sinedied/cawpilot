@@ -14,6 +14,7 @@ import {
 } from '../workspace/config.js';
 import { saveEnvValue } from '../workspace/env.js';
 import { logger } from '../utils/logger.js';
+import { isRunningInDocker } from '../utils/docker.js';
 import {
   startRuntime,
   stopRuntime,
@@ -70,7 +71,7 @@ export function createSetupRouter(
   router.get('/status', (_req: Request, res: Response) => {
     const envStatus = resolveEnvStatus();
     const hasConfig = configExists(workspacePath);
-    res.json({ hasConfig, env: envStatus });
+    res.json({ hasConfig, env: envStatus, isDocker: isRunningInDocker() });
   });
 
   // ── GitHub Auth ───────────────────────────────────────

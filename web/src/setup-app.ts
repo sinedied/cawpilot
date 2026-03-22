@@ -180,6 +180,7 @@ export class SetupApp extends LitElement {
   @state() telegramTokenFromEnv = '';
   @state() authComplete = false;
   @state() ghUser = '';
+  @state() isDocker = false;
   @state() theme: 'dark' | 'light' = 'dark';
 
   override connectedCallback() {
@@ -196,6 +197,7 @@ export class SetupApp extends LitElement {
     try {
       const status = await api<{
         hasConfig: boolean;
+        isDocker: boolean;
         env: {
           ghAuth: { available: boolean };
           telegramToken: { available: boolean };
@@ -203,6 +205,7 @@ export class SetupApp extends LitElement {
         };
       }>('/status');
       this.authorized = true;
+      this.isDocker = status.isDocker;
 
       if (status.env.telegramToken.available) {
         this.telegramTokenFromEnv = '(from environment)';
@@ -408,6 +411,7 @@ export class SetupApp extends LitElement {
           .skills=${this._pendingSkills}
           .channels=${this._pendingChannels}
           .persistence=${this._pendingPersistence}
+          .isDocker=${this.isDocker}
         ></complete-step>`;
       }
     }

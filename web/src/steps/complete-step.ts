@@ -42,6 +42,7 @@ export class CompleteStep extends LitElement {
   @state() saving = false;
   @state() done = false;
   @state() error = '';
+  @state() isDocker = false;
 
   model = '';
   skills: string[] = [];
@@ -55,15 +56,9 @@ export class CompleteStep extends LitElement {
         <div class="done-message">
           <h2>✓ Setup Complete!</h2>
           <p>
-            Configuration saved. The agent process will now exit and needs to be
-            restarted to enter normal mode.
-          </p>
-          <p class="hint">
-            In a container deployment, the restart is automatic. Locally, run
-            <code>cawpilot start</code> again.
-          </p>
-          <p class="hint">
-            Use /pair from the CLI or Telegram to link your account.
+            ${this.isDocker
+              ? 'Your agent is restarting and will be ready shortly.'
+              : 'Run cawpilot start to launch your agent.'}
           </p>
         </div>
       `;
