@@ -130,6 +130,13 @@ export async function runStart(
     logger.debug(`Message received from ${msg.channel}/${msg.sender}`);
   };
 
+  // In dashboard mode, configure CLI channel BEFORE start() so it skips readline
+  if (!debug) {
+    cliChannel.enableDashboardMode((content) => {
+      addChatMessage({ sender: 'bot', content });
+    });
+  }
+
   const startResults = await Promise.allSettled(
     [...channels.entries()].map(async ([name, channel]) => {
       await channel.start(messageHandler);
@@ -191,10 +198,6 @@ export async function runStart(
     });
   } else {
     // Normal mode: Ink dashboard in alternate screen
-    cliChannel.enableDashboardMode((content) => {
-      addChatMessage({ sender: 'bot', content });
-    });
-
     const handleInput = (text: string) => {
       cliChannel.handleLine(text);
     };
