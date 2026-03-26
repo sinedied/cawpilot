@@ -5,6 +5,9 @@
     "environmentName": {
       "value": "${AZURE_ENV_NAME}"
     },
+    "resourceGroupName": {
+      "value": "${AZURE_RESOURCE_GROUP}"
+    },
     "location": {
       "value": "${AZURE_LOCATION}"
     },
@@ -16,6 +19,9 @@
     },
     "telegramToken": {
       "value": "${TELEGRAM_TOKEN}"
+    },
+    "isContinuousIntegration": {
+      "value": "${CI=false}"
     }
   }
 }

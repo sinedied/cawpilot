@@ -3,7 +3,9 @@
 name: cawpilot
 services:
   app:
+    project: ../..
     host: containerapp
+    language: ts
     docker:
-      path: ../../Dockerfile
-      context: ../..
+      path: Dockerfile
+      context: .
