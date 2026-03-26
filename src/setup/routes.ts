@@ -1,14 +1,10 @@
 import process from 'node:process';
 import { Buffer } from 'node:buffer';
-import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { existsSync, cpSync, mkdirSync, copyFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { timingSafeEqual } from 'node:crypto';
 import { type Request, type Response, Router } from 'express';
 import {
   loadConfig,
   saveConfig,
-  getSkillsPath,
   configExists,
   type ChannelConfig,
 } from '../workspace/config.js';
@@ -22,12 +18,16 @@ import {
   checkCopilotAuth,
 } from '../agent/runtime.js';
 import {
-  resolveEnvStatus,
-  checkGitHubAuth,
+  getGitHubUser,
   authenticateGitHub,
+  resolveEnvStatus,
+  listAvailableSkills,
+  getSkillsRoot,
+  sanitizeChannels,
   buildChannelsFromEnv,
-  listSkillDirs,
-} from './env-config.js';
+  copyEnabledSkills,
+  finalizeSetup,
+} from './steps.js';
 import { runCopilotLogin } from './copilot-auth.js';
 
 function safeCompare(a: string, b: string): boolean {
@@ -35,18 +35,6 @@ function safeCompare(a: string, b: string): boolean {
   const bufB = Buffer.from(b);
   if (bufA.length !== bufB.length) return false;
   return timingSafeEqual(bufA, bufB);
-}
-
-function getSkillsRoot(): string {
-  // Check project root skills dir first (dev), then relative to dist
-  const devPath = join(process.cwd(), 'skills');
-  const distPath = join(
-    dirname(fileURLToPath(import.meta.url)),
-    '..',
-    '..',
-    'skills',
-  );
-  return existsSync(devPath) ? devPath : distPath;
 }
 
 export function createSetupRouter(
@@ -76,7 +64,7 @@ export function createSetupRouter(
 
   // ── GitHub Auth ───────────────────────────────────────
   router.get('/gh-auth', (_req: Request, res: Response) => {
-    const user = checkGitHubAuth();
+    const user = getGitHubUser();
     res.json({ authenticated: Boolean(user), user });
   });
 
@@ -141,7 +129,7 @@ export function createSetupRouter(
 
   // ── Skills ────────────────────────────────────────────
   router.get('/skills', (_req: Request, res: Response) => {
-    const skills = listSkillDirs(getSkillsRoot());
+    const skills = listAvailableSkills();
     res.json({ skills });
   });
 
@@ -153,21 +141,7 @@ export function createSetupRouter(
       return;
     }
 
-    // Validate and sanitize
-    const sanitized: ChannelConfig[] = channels
-      .filter((c) => c.type === 'telegram' || c.type === 'http')
-      .map((c) => ({
-        type: c.type,
-        enabled: c.enabled ?? true,
-        ...(c.type === 'telegram' && {
-          telegramToken: c.telegramToken,
-          allowList: c.allowList ?? [],
-        }),
-        ...(c.type === 'http' && {
-          httpPort: c.httpPort ?? 2243,
-          httpApiKey: c.httpApiKey ?? randomBytes(24).toString('base64url'),
-        }),
-      }));
+    const sanitized = sanitizeChannels(channels);
 
     const config = loadConfig(workspacePath);
     config.channels = sanitized;
@@ -198,7 +172,6 @@ export function createSetupRouter(
 
     if (body.skills) {
       config.skills = body.skills;
-      copySkills(workspacePath, body.skills);
     }
 
     config.channels = body.channels ?? buildChannelsFromEnv(config.channels);
@@ -211,8 +184,7 @@ export function createSetupRouter(
     config.web = { setupEnabled: false };
 
     saveConfig(config);
-    ensureTemplate(workspacePath, 'SOUL.md');
-    ensureTemplate(workspacePath, 'USER.md');
+    finalizeSetup(workspacePath, config.skills);
 
     logger.info('Web setup completed');
     res.json({ ok: true, message: 'Setup complete. Restarting...' });
@@ -224,38 +196,4 @@ export function createSetupRouter(
   });
 
   return router;
-}
-
-function copySkills(workspacePath: string, skills: string[]): void {
-  const targetDir = getSkillsPath(workspacePath);
-  mkdirSync(targetDir, { recursive: true });
-  const skillsRoot = getSkillsRoot();
-
-  for (const skill of skills) {
-    const src = join(skillsRoot, skill);
-    const dest = join(targetDir, skill);
-    if (existsSync(src)) {
-      cpSync(src, dest, { recursive: true });
-    }
-  }
-}
-
-function ensureTemplate(workspacePath: string, filename: string): void {
-  const targetPath = join(workspacePath, '.cawpilot', filename);
-  if (existsSync(targetPath)) return;
-
-  const devPath = join(process.cwd(), 'templates', filename);
-  const distPath = join(
-    dirname(fileURLToPath(import.meta.url)),
-    '..',
-    '..',
-    'templates',
-    filename,
-  );
-  const src = existsSync(devPath) ? devPath : distPath;
-
-  if (existsSync(src)) {
-    mkdirSync(dirname(targetPath), { recursive: true });
-    copyFileSync(src, targetPath);
-  }
 }

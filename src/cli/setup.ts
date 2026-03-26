@@ -1,23 +1,11 @@
 import process from 'node:process';
-import { randomBytes } from 'node:crypto';
 import { execSync, spawnSync } from 'node:child_process';
-import {
-  readdirSync,
-  existsSync,
-  cpSync,
-  copyFileSync,
-  mkdirSync,
-} from 'node:fs';
-import { join, basename, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { input, confirm, checkbox, select, password } from '@inquirer/prompts';
 import ora from 'ora';
 import chalk from 'chalk';
 import {
   loadConfig,
   saveConfig,
-  getSkillsPath,
-  type CawpilotConfig,
   type ChannelConfig,
 } from '../workspace/config.js';
 import { ensureWorkspace, getGitHubUser } from '../workspace/manager.js';
@@ -27,11 +15,18 @@ import {
   listAvailableModels,
   checkCopilotAuth,
 } from '../agent/runtime.js';
-import { logger } from '../utils/logger.js';
 import { isRunningInDocker } from '../utils/docker.js';
 import { loadEnvFile, saveEnvValue } from '../workspace/env.js';
 import { renderBanner, gradientText } from '../ui/banner.js';
 import { initializePersistence } from '../workspace/persistence.js';
+import {
+  ensureGitignore,
+  ensureTemplate,
+  listAvailableSkills,
+  copyEnabledSkills,
+  generateApiKey,
+  finalizeSetup,
+} from '../setup/steps.js';
 
 export async function runSetup(workspacePath: string): Promise<void> {
   console.log('\n' + renderBanner() + '\n');
@@ -136,9 +131,7 @@ export async function runSetup(workspacePath: string): Promise<void> {
 
   // Save
   saveConfig(config);
-  copyEnabledSkills(workspacePath, skills);
-  ensureTemplate(workspacePath, 'SOUL.md');
-  ensureTemplate(workspacePath, 'USER.md');
+  finalizeSetup(workspacePath, skills);
 
   console.log(chalk.bold.green("\n  You're all set! 🎉\n"));
 
@@ -222,8 +215,7 @@ async function setupChannels(
       message: 'HTTP API port:',
       default: String(existingHttp?.httpPort ?? 2243),
     });
-    const apiKey =
-      existingHttp?.httpApiKey ?? randomBytes(24).toString('base64url');
+    const apiKey = existingHttp?.httpApiKey ?? generateApiKey();
     channels.push({
       type: 'http',
       enabled: true,
@@ -239,22 +231,8 @@ async function setupChannels(
   return channels;
 }
 
-async function setupSkills(workspacePath: string): Promise<string[]> {
-  const skillsRoot = join(workspacePath, '..', 'skills');
-  // Also check relative to the project root
-  const projectSkillsDir = join(process.cwd(), 'skills');
-  const skillsDir = existsSync(skillsRoot) ? skillsRoot : projectSkillsDir;
-
-  if (!existsSync(skillsDir)) {
-    console.log(chalk.dim('No skills directory found.'));
-    return [];
-  }
-
-  const available = readdirSync(skillsDir, { withFileTypes: true })
-    .filter(
-      (d) => d.isDirectory() && existsSync(join(skillsDir, d.name, 'SKILL.md')),
-    )
-    .map((d) => d.name);
+async function setupSkills(_workspacePath: string): Promise<string[]> {
+  const available = listAvailableSkills();
 
   if (available.length === 0) {
     console.log(chalk.dim('No skills available.'));
@@ -267,22 +245,6 @@ async function setupSkills(workspacePath: string): Promise<string[]> {
   });
 
   return selected;
-}
-
-function copyEnabledSkills(workspacePath: string, skills: string[]): void {
-  const targetDir = getSkillsPath(workspacePath);
-  mkdirSync(targetDir, { recursive: true });
-
-  const projectSkillsDir = join(process.cwd(), 'skills');
-
-  for (const skill of skills) {
-    const src = join(projectSkillsDir, skill);
-    const dest = join(targetDir, skill);
-    if (existsSync(src)) {
-      cpSync(src, dest, { recursive: true });
-      logger.debug(`Copied skill ${skill} to workspace`);
-    }
-  }
 }
 
 async function setupCopilotAndModel(currentModel: string): Promise<string> {
@@ -395,47 +357,6 @@ async function setupCopilotAndModel(currentModel: string): Promise<string> {
     console.log(chalk.yellow(`  Keeping current model: ${currentModel}\n`));
     await stopRuntime().catch(() => {});
     return currentModel;
-  }
-}
-
-function ensureTemplate(workspacePath: string, filename: string): void {
-  const targetPath = join(workspacePath, '.cawpilot', filename);
-  if (existsSync(targetPath)) return;
-
-  const devPath = join(process.cwd(), 'templates', filename);
-  const distPath = join(
-    dirname(fileURLToPath(import.meta.url)),
-    '..',
-    '..',
-    'templates',
-    filename,
-  );
-  const src = existsSync(devPath) ? devPath : distPath;
-
-  if (existsSync(src)) {
-    mkdirSync(dirname(targetPath), { recursive: true });
-    copyFileSync(src, targetPath);
-    logger.debug(`Template ${filename} created at ${targetPath}`);
-  }
-}
-
-function ensureGitignore(workspacePath: string): void {
-  const gitignorePath = join(workspacePath, '.gitignore');
-  if (existsSync(gitignorePath)) return;
-
-  const devPath = join(process.cwd(), 'templates', '_.gitignore');
-  const distPath = join(
-    dirname(fileURLToPath(import.meta.url)),
-    '..',
-    '..',
-    'templates',
-    '_.gitignore',
-  );
-  const src = existsSync(devPath) ? devPath : distPath;
-
-  if (existsSync(src)) {
-    copyFileSync(src, gitignorePath);
-    logger.debug(`Gitignore created at ${gitignorePath}`);
   }
 }
 

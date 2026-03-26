@@ -108,7 +108,7 @@ export function listUserRepos(): string[] {
 export function getGitHubUser(): string | undefined {
   try {
     const result = execSync('gh api user -q .login', { stdio: 'pipe' });
-    return result.toString().trim();
+    return result.toString().trim() || undefined;
   } catch {
     return undefined;
   }

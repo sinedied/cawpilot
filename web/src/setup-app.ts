@@ -237,10 +237,8 @@ export class SetupApp extends LitElement {
   private next() {
     const idx = this.currentIndex;
     if (idx < STEPS.length - 1) {
-      if (STEPS[idx + 1] === 'complete') {
-        this.prepareComplete();
-      }
-
+      // Capture current step's data before leaving it
+      this.captureStepData(this.currentStep);
       this.currentStep = STEPS[idx + 1];
     }
   }
@@ -252,29 +250,43 @@ export class SetupApp extends LitElement {
     }
   }
 
-  private prepareComplete() {
-    const modelStep = this.shadowRoot?.querySelector('model-step') as
-      | ModelStep
-      | undefined;
-    const skillsStep = this.shadowRoot?.querySelector('skills-step') as
-      | SkillsStep
-      | undefined;
-    const channelsStep = this.shadowRoot?.querySelector('channels-step') as
-      | ChannelsStep
-      | undefined;
+  private captureStepData(step: StepName) {
+    switch (step) {
+      case 'channels': {
+        const el = this.shadowRoot?.querySelector('channels-step') as
+          | ChannelsStep
+          | undefined;
+        if (el) this._pendingChannels = el.channels;
+        break;
+      }
 
-    const persistenceStep = this.shadowRoot?.querySelector(
-      'persistence-step',
-    ) as PersistenceStep | undefined;
+      case 'model': {
+        const el = this.shadowRoot?.querySelector('model-step') as
+          | ModelStep
+          | undefined;
+        if (el) this._pendingModel = el.model;
+        break;
+      }
 
-    this._pendingModel = modelStep?.model ?? 'gpt-4.1';
-    this._pendingSkills = skillsStep?.skills ?? [];
-    this._pendingChannels = channelsStep?.channels ?? [];
-    this._pendingPersistence = persistenceStep?.persistence ?? {
-      enabled: false,
-      repo: '',
-      backupIntervalDays: 1,
-    };
+      case 'skills': {
+        const el = this.shadowRoot?.querySelector('skills-step') as
+          | SkillsStep
+          | undefined;
+        if (el) this._pendingSkills = el.skills;
+        break;
+      }
+
+      case 'backup': {
+        const el = this.shadowRoot?.querySelector('persistence-step') as
+          | PersistenceStep
+          | undefined;
+        if (el) this._pendingPersistence = el.persistence;
+        break;
+      }
+
+      default:
+        break;
+    }
   }
 
   private _pendingModel = '';
