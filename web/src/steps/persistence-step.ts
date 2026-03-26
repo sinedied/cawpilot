@@ -26,20 +26,36 @@ export class PersistenceStep extends LitElement {
   ];
 
   @property({ type: String }) ghUser = '';
+  @property({ type: Object }) initialPersistence: {
+    enabled: boolean;
+    repo: string;
+    backupIntervalDays: number;
+  } = { enabled: true, repo: '', backupIntervalDays: 1 };
 
   @state() enabled = true;
   @state() repo = '';
+  @state() initialized = false;
 
   override connectedCallback() {
     super.connectedCallback();
-    if (this.ghUser && !this.repo) {
-      this.repo = `${this.ghUser}/my-cawpilot`;
-    }
+    this.applyInitial();
   }
 
   override updated(changed: Map<string, unknown>) {
-    if (changed.has('ghUser') && this.ghUser && !this.repo) {
+    if (!this.initialized) {
+      this.applyInitial();
+    }
+  }
+
+  private applyInitial() {
+    if (this.initialized) return;
+    if (this.initialPersistence.repo) {
+      this.enabled = this.initialPersistence.enabled;
+      this.repo = this.initialPersistence.repo;
+      this.initialized = true;
+    } else if (this.ghUser) {
       this.repo = `${this.ghUser}/my-cawpilot`;
+      this.initialized = true;
     }
   }
 

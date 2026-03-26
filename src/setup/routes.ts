@@ -59,7 +59,13 @@ export function createSetupRouter(
   router.get('/status', (_req: Request, res: Response) => {
     const envStatus = resolveEnvStatus();
     const hasConfig = configExists(workspacePath);
-    res.json({ hasConfig, env: envStatus, isDocker: isRunningInDocker() });
+    const config = hasConfig ? loadConfig(workspacePath) : undefined;
+    res.json({
+      hasConfig,
+      env: envStatus,
+      isDocker: isRunningInDocker(),
+      persistence: config?.persistence,
+    });
   });
 
   // ── GitHub Auth ───────────────────────────────────────
@@ -150,7 +156,7 @@ export function createSetupRouter(
   });
 
   // ── Complete Setup ────────────────────────────────────
-  router.post('/complete', (req: Request, res: Response) => {
+  router.post('/complete', async (req: Request, res: Response) => {
     const body = req.body as {
       model?: string;
       skills?: string[];
@@ -186,13 +192,38 @@ export function createSetupRouter(
     saveConfig(config);
     finalizeSetup(workspacePath, config.skills);
 
-    logger.info('Web setup completed');
-    res.json({ ok: true, message: 'Setup complete. Restarting...' });
+    // Initialize persistence if enabled
+    if (config.persistence.enabled && config.persistence.repo) {
+      try {
+        const { initializePersistence } =
+          await import('../workspace/persistence.js');
+        initializePersistence(config);
+      } catch {
+        logger.warn('Persistence initialization failed during web setup');
+      }
+    }
 
-    // Exit after response is sent — container auto-restarts into normal mode
-    setTimeout(() => {
-      process.exit(0);
-    }, 1000);
+    logger.info('Web setup completed');
+    res.json({ ok: true });
+
+    if (isRunningInDocker()) {
+      // Container auto-restarts into normal mode
+      setTimeout(() => {
+        process.exit(0);
+      }, 1000);
+    } else {
+      // Locally: restart into normal start mode
+      setTimeout(() => {
+        void (async () => {
+          try {
+            const { runStart } = await import('../cli/start.js');
+            await runStart(workspacePath);
+          } catch {
+            process.exit(0);
+          }
+        })();
+      }, 500);
+    }
   });
 
   return router;

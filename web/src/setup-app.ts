@@ -203,12 +203,21 @@ export class SetupApp extends LitElement {
           telegramToken: { available: boolean };
           model: { available: boolean; value?: string };
         };
+        persistence?: {
+          enabled: boolean;
+          repo: string;
+          backupIntervalDays: number;
+        };
       }>('/status');
       this.authorized = true;
       this.isDocker = status.isDocker;
 
       if (status.env.telegramToken.available) {
         this.telegramTokenFromEnv = '(from environment)';
+      }
+
+      if (status.persistence) {
+        this._pendingPersistence = status.persistence;
       }
     } catch {
       this.authError = 'Invalid setup key. Check the URL.';
@@ -416,6 +425,7 @@ export class SetupApp extends LitElement {
       case 'backup':
         return html`<persistence-step
           .ghUser=${this.ghUser}
+          .initialPersistence=${this._pendingPersistence}
         ></persistence-step>`;
       case 'complete': {
         return html`<complete-step
@@ -423,7 +433,6 @@ export class SetupApp extends LitElement {
           .skills=${this._pendingSkills}
           .channels=${this._pendingChannels}
           .persistence=${this._pendingPersistence}
-          .isDocker=${this.isDocker}
         ></complete-step>`;
       }
     }

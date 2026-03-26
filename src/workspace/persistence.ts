@@ -61,7 +61,23 @@ export function initializePersistence(config: CawpilotConfig): {
 
     if (!hasCommits(ws)) {
       execSync('git add -A', { cwd: ws, stdio: 'pipe' });
-      execSync('git commit -m "Initial setup"', { cwd: ws, stdio: 'pipe' });
+
+      // Check if there's anything to commit
+      try {
+        execSync('git diff --cached --quiet', { cwd: ws, stdio: 'pipe' });
+        // Nothing staged — create an empty initial commit
+        execSync('git commit --allow-empty -m "Initial setup"', {
+          cwd: ws,
+          stdio: 'pipe',
+        });
+      } catch {
+        // There are staged changes, commit them
+        execSync('git commit -m "Initial setup"', {
+          cwd: ws,
+          stdio: 'pipe',
+        });
+      }
+
       execSync('git push -u origin HEAD', { cwd: ws, stdio: 'pipe' });
       logger.info(`Initial config pushed to ${repo}`);
       return { success: true, message: `Repository ${repo} initialized.` };

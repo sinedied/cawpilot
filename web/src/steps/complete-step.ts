@@ -42,7 +42,6 @@ export class CompleteStep extends LitElement {
   @state() saving = false;
   @state() done = false;
   @state() error = '';
-  @state() isDocker = false;
 
   model = '';
   skills: string[] = [];
@@ -55,11 +54,7 @@ export class CompleteStep extends LitElement {
       return html`
         <div class="done-message">
           <h2>✓ Setup Complete!</h2>
-          <p>
-            ${this.isDocker
-              ? 'Your agent is restarting and will be ready shortly.'
-              : 'Run cawpilot start to launch your agent.'}
-          </p>
+          <p>Your agent is starting up, you can close this page.</p>
         </div>
       `;
     }

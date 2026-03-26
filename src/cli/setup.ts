@@ -97,7 +97,7 @@ export async function runSetup(workspacePath: string): Promise<void> {
   if (enablePersistence) {
     const repoName = await input({
       message: 'Repository name:',
-      default: `${user}/my-cawpilot`,
+      default: config.persistence.repo || `${user}/my-cawpilot`,
     });
     config.persistence = {
       enabled: true,
