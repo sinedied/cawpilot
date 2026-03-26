@@ -3,20 +3,14 @@ FROM node:24 AS build
 
 WORKDIR /app
 COPY package.json package-lock.json* ./
-COPY scripts/ ./scripts/
 RUN npm ci --cache /tmp/npm-cache && rm -rf /tmp/npm-cache
+
+COPY web/package.json web/package-lock.json* ./web/
+RUN cd web && npm ci --cache /tmp/npm-cache && rm -rf /tmp/npm-cache
 
 COPY tsconfig.json ./
 COPY src/ ./src/
-RUN npm run build
-
-# --- Web UI build stage ---
-FROM node:24 AS web-build
-
-WORKDIR /app/web
-COPY web/package.json web/package-lock.json* ./
-RUN npm ci --cache /tmp/npm-cache && rm -rf /tmp/npm-cache
-COPY web/ ./
+COPY web/ ./web/
 RUN npm run build
 
 # --- Runtime stage ---
@@ -40,10 +34,8 @@ ENV PATH="/root/.local/bin:$PATH"
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-COPY scripts/ ./scripts/
 RUN npm ci --production --cache /tmp/npm-cache && rm -rf /tmp/npm-cache
 COPY --from=build /app/dist/ ./dist/
-COPY --from=web-build /app/dist/web/ ./dist/web/
 COPY skills/ ./skills/
 COPY templates/ ./templates/
 
