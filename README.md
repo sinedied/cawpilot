@@ -17,9 +17,9 @@
 
 ---
 
-CawPilot is an always-on agent assistant that lives in your terminal and talks to you through Telegram, HTTP webhooks, or the CLI. It manages code, branches, todo lists, and everyday developer workflows through natural conversation — backed by GitHub Copilot's agentic runtime.
+cawpilot is an always-on agent assistant that lives in your terminal and talks to you through Telegram, HTTP webhooks, or the CLI. It manages code, branches, todo lists, and everyday developer workflows through natural conversation — backed by GitHub Copilot's agentic runtime.
 
-CawPilot operates in a dedicated sandboxed workspace, cloning your connected repositories and working exclusively in safe `cp-*` branches. It never touches your main branches directly.
+cawpilot operates in a dedicated sandboxed workspace, cloning your connected repositories and working exclusively in safe `cp-*` branches. It never touches your main branches directly.
 
 ## Features
 
@@ -91,17 +91,17 @@ The bot starts and displays a minimal dashboard with uptime, active tasks, recen
 | `cawpilot doctor` | Run diagnostics to verify configuration and connectivity |
 | `cawpilot send <msg>` | Send a message to the bot from the CLI channel |
 
-### Talking to CawPilot
+### Talking to cawpilot
 
 Once started, send messages through any connected channel:
 
 ```
 You: Create a new utility function to format dates in the api-server repo
-CawPilot: I'll work on that. Creating branch cp-add-date-formatter...
+cawpilot: I'll work on that. Creating branch cp-add-date-formatter...
          Done! I've created a PR with the changes: https://github.com/...
 ```
 
-CawPilot will ask follow-up questions if it needs clarification.
+cawpilot will ask follow-up questions if it needs clarification.
 
 ### Telegram Setup
 
@@ -113,7 +113,7 @@ During `cawpilot setup`, if you select Telegram:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                      CawPilot Server                     │
+│                      cawpilot Server                     │
 │                                                          │
 │  ┌─────────┐  ┌─────────┐  ┌─────────┐                  │
 │  │Telegram │  │HTTP API │  │  CLI    │   Channels        │
@@ -185,7 +185,7 @@ Optionally sync your configuration to a private GitHub repository (default: `<us
 
 ### BYOK (Bring Your Own Key)
 
-CawPilot supports using your own API keys instead of a Copilot subscription. Configure a custom provider in the config file:
+cawpilot supports using your own API keys instead of a Copilot subscription. Configure a custom provider in the config file:
 
 ```json
 {
@@ -198,11 +198,11 @@ CawPilot supports using your own API keys instead of a Copilot subscription. Con
 ```
 
 > [!NOTE]
-> CawPilot is built on the GitHub Copilot SDK which is currently in **Technical Preview**. APIs may change.
+> cawpilot is built on the GitHub Copilot SDK which is currently in **Technical Preview**. APIs may change.
 
 ## Docker
 
-Running CawPilot in Docker provides isolation — the agent can only access the mounted workspace, not your system.
+Running cawpilot in Docker provides isolation — the agent can only access the mounted workspace, not your system.
 
 ### Quick Start with Docker
 

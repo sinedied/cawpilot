@@ -324,7 +324,7 @@ export class SetupApp extends LitElement {
             src="${import.meta.env.BASE_URL}logo.png"
             alt=""
           />
-          <h1 class="gradient-text">CawPilot Setup</h1>
+          <h1 class="gradient-text">cawpilot setup</h1>
         </div>
         <div class="error-banner">${this.authError}</div>
       `;
@@ -338,7 +338,7 @@ export class SetupApp extends LitElement {
             src="${import.meta.env.BASE_URL}logo.png"
             alt=""
           />
-          <h1 class="gradient-text">CawPilot Setup</h1>
+          <h1 class="gradient-text">cawpilot Setup</h1>
           <p><span class="spinner"></span> Connecting...</p>
         </div>
       `;
@@ -359,7 +359,7 @@ export class SetupApp extends LitElement {
           src="${import.meta.env.BASE_URL}logo.png"
           alt=""
         />
-        <h1 class="gradient-text">CawPilot Setup</h1>
+        <h1 class="gradient-text">cawpilot Setup</h1>
         <p>Configure your agent in a few steps.</p>
       </div>
 

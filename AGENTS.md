@@ -1,4 +1,4 @@
-# CawPilot
+# cawpilot
 
 Autonomous developer assistant built on GitHub Copilot SDK. Multi-channel (Telegram, HTTP, CLI) agent that manages code, branches, todo lists, and developer workflows through natural conversation.
 
@@ -64,7 +64,7 @@ web/                      # Lit web components for setup wizard UI (Vite build)
     └── lib/
         ├── api.ts         # Fetch wrapper (auto-attaches X-Setup-Key)
         └── styles.ts      # Shared Lit CSS
-skills/                   # CawPilot runtime skills (user-selectable)
+skills/                   # cawpilot runtime skills (user-selectable)
 cloud/                    # Cloud deployment configurations
 └── azure/                # Azure Container Apps deployment (azd CLI)
     ├── azure.yaml        # azd service definition
@@ -161,7 +161,7 @@ npx tsx src/index.ts doctor
 - **Channel interface**: All channels implement the `Channel` interface from `channels/types.ts`. Channels support cross-channel messaging via the `send_message` tool.
 - **Linting**: xo (ESLint + Prettier) via `npm run lint`. All code changes must pass lint before committing.
 - **Testing**: Tests in `tests/` mirror `src/` structure. Use in-memory SQLite for DB tests. Use vitest.
-- **No hardcoded branding in bot responses** — The agent's identity comes from `SOUL.md`, not from hardcoded "CawPilot" strings. Never include "CawPilot", product names, or branded prefixes/headers (e.g. `🤖 **CawPilot Status**`) in messages sent to users, task results, archive files, or prompts. The only places where "CawPilot" may appear are: CLI setup/onboarding, the dashboard UI, and doctor diagnostics. Internal type names (e.g. `CawpilotConfig`) and `.cawpilot/` paths are fine.
+- **No hardcoded branding in bot responses** — The agent's identity comes from `SOUL.md`, not from hardcoded "cawpilot" strings. Never include "cawpilot", product names, or branded prefixes/headers (e.g. `🤖 **cawpilot Status**`) in messages sent to users, task results, archive files, or prompts. The only places where "cawpilot" may appear are: CLI setup/onboarding, the dashboard UI, and doctor diagnostics. Internal type names (e.g. `CawpilotConfig`) and `.cawpilot/` paths are fine.
 - **Terminal input sanitization** — The `updateValue()` function in `src/ui/input-line.tsx` is the **single chokepoint** for all value mutations in the dashboard input line. It filters out all non-printable characters (code point < 32 or = 127/DEL). This is critical because Ink's raw-mode stdin can leak invisible bytes (e.g. `\x7f` from macOS Backspace) into the value string, causing corrupted commands like `"toto\x7f\x7f\x7f\x7f/help"` → sent as `"toto/help"` instead of `"/help"`. **Never bypass this sanitization** by writing directly to `valueRef.current`. Always go through `updateValue()`. See regression tests in `tests/ui/input-line.test.ts`.
 
 ## Security Considerations

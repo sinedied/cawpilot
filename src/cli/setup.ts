@@ -281,7 +281,7 @@ async function setupCopilotAndModel(currentModel: string): Promise<string> {
       }
     } else {
       console.log(
-        chalk.yellow('  CawPilot requires the Copilot CLI to operate.\n'),
+        chalk.yellow('  cawpilot requires the Copilot CLI to operate.\n'),
       );
       return currentModel;
     }

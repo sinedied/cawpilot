@@ -13,7 +13,7 @@ export function ensurePersistenceRepo(repo: string): void {
   } catch {
     logger.info(`Creating private repository ${repo}...`);
     execSync(
-      `gh repo create ${repo} --private --description "CawPilot backup"`,
+      `gh repo create ${repo} --private --description "cawpilot backup"`,
       {
         stdio: 'pipe',
       },

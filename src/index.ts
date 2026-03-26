@@ -48,7 +48,7 @@ program
 
 program
   .command('start')
-  .description('Start the CawPilot bot server')
+  .description('Start the cawpilot bot server')
   .action(async () => {
     const debug = program.opts().debug ?? false;
     await runStart(getWorkspace(), { debug });

@@ -1,5 +1,5 @@
 /**
- * System prompts for CawPilot agent sessions.
+ * System prompts for cawpilot agent sessions.
  * Centralized here so they can be tuned without modifying business logic.
  */
 

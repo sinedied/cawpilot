@@ -1,11 +1,11 @@
 ---
 name: skill-creator
-description: Guide users through creating new CawPilot skills with a structured process and template. Use when the user asks to create a new skill, make a skill, add a skill, build a custom skill, or extend CawPilot's capabilities with new domain knowledge or workflows.
+description: Guide users through creating new cawpilot skills with a structured process and template. Use when the user asks to create a new skill, make a skill, add a skill, build a custom skill, or extend cawpilot's capabilities with new domain knowledge or workflows.
 ---
 
 # Skill Creator
 
-Guide for creating CawPilot skills — modular packages that extend the agent with specialized knowledge, workflows, and tool integrations.
+Guide for creating cawpilot skills — modular packages that extend the agent with specialized knowledge, workflows, and tool integrations.
 
 ## Skill Structure
 
@@ -89,7 +89,7 @@ Write the SKILL.md following the format above. Key guidelines:
 
 ### 4. Test and Iterate
 
-After creating the skill, tell the user to restart CawPilot so it picks up the new skill. Then test with real prompts and refine based on results.
+After creating the skill, tell the user to restart cawpilot so it picks up the new skill. Then test with real prompts and refine based on results.
 
 ## Privacy-First Rules
 
@@ -97,7 +97,7 @@ After creating the skill, tell the user to restart CawPilot so it picks up the n
 
 1. **No secrets in skill files** — never embed API keys, tokens, passwords, or credentials in SKILL.md or any skill file. Reference environment variables or config instead.
 2. **No user data in skill files** — skills are templates, not data stores. Never include PII, usernames, account IDs, or user-specific data.
-3. **Credential handling** — if a skill needs credentials, instruct the agent to read them from environment variables or the CawPilot config at runtime. Example:
+3. **Credential handling** — if a skill needs credentials, instruct the agent to read them from environment variables or the cawpilot config at runtime. Example:
    ```markdown
    Read the API key from the `MYSERVICE_API_KEY` environment variable. Never log or display the key.
    ```
