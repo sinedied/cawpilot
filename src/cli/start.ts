@@ -97,6 +97,8 @@ export async function runStart(
     }
   }
 
+  const orchestrator = new Orchestrator(config, db, channels);
+
   // Command handler delegates to centralized handler
   const commandHandler: CommandHandler = async (
     command,
@@ -151,7 +153,6 @@ export async function runStart(
   }
 
   // Start orchestrator
-  const orchestrator = new Orchestrator(config, db, channels);
   orchestrator.start();
 
   // Graceful shutdown

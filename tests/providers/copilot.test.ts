@@ -1,8 +1,8 @@
-import path from 'node:path';
 import { describe, it, expect } from 'vitest';
 import {
   isInsideWorkspace,
   createSandboxedPermissionHandler,
+  resolveUserInputRequest,
 } from '../../src/providers/copilot.js';
 
 const workspace = '/home/user/workspace';
@@ -113,5 +113,35 @@ describe('createSandboxedPermissionHandler', () => {
       const result = await handler({ kind });
       expect(result).toEqual({ kind: 'approved' });
     }
+  });
+});
+
+describe('resolveUserInputRequest', () => {
+  it('sends a clarification prompt on push-capable channels', async () => {
+    const sent: string[] = [];
+    const result = await resolveUserInputRequest('cli', 'local', 'Need info?', {
+      canPushMessages: true,
+      async send(_sender, content) {
+        sent.push(content);
+      },
+      async waitForInput() {
+        return 'answer';
+      },
+    });
+
+    expect(sent).toEqual(['❓ Need info?']);
+    expect(result).toEqual({ answer: 'answer', wasFreeform: true });
+  });
+
+  it('fails fast on non-push channels', async () => {
+    await expect(
+      resolveUserInputRequest('http', 'user', 'Need info?', {
+        canPushMessages: false,
+        async send() {},
+        async waitForInput() {
+          return 'never used';
+        },
+      }),
+    ).rejects.toThrow(/Interactive clarification is not supported on the http channel/);
   });
 });

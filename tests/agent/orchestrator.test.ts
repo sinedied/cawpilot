@@ -5,6 +5,11 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import {
+  createMessage,
+  getMessagesByTask,
+  markMessagesProcessing,
+} from '../../src/db/messages.js';
+import {
   createTask,
   updateTaskStatus,
   getAllTasks,
@@ -16,6 +21,18 @@ function createTestDb(): Database.Database {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.exec(`
+    CREATE TABLE IF NOT EXISTS messages (
+      id TEXT PRIMARY KEY,
+      channel TEXT NOT NULL,
+      sender TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'user',
+      content TEXT NOT NULL,
+      attachments TEXT DEFAULT '[]',
+      status TEXT NOT NULL DEFAULT 'unprocessed',
+      task_id TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+    );
     CREATE TABLE IF NOT EXISTS tasks (
       id TEXT PRIMARY KEY,
       status TEXT NOT NULL DEFAULT 'pending',
@@ -47,7 +64,11 @@ describe('cleanup: archiveCompletedTasks', () => {
     const t1 = createTask(db, 'Task A');
     const t2 = createTask(db, 'Task B');
     const t3 = createTask(db, 'Task C (active)');
+    const m1 = createMessage(db, 'cli', 'local', 'Task A message');
+    const m2 = createMessage(db, 'cli', 'local', 'Task B message');
 
+    markMessagesProcessing(db, [m1.id], t1.id);
+    markMessagesProcessing(db, [m2.id], t2.id);
     updateTaskStatus(db, t1.id, 'completed', 'Done');
     updateTaskStatus(db, t2.id, 'failed', 'Error occurred');
 
@@ -68,6 +89,8 @@ describe('cleanup: archiveCompletedTasks', () => {
     const remaining = getAllTasks(db);
     expect(remaining).toHaveLength(1);
     expect(remaining[0].title).toBe('Task C (active)');
+    expect(getMessagesByTask(db, t1.id)).toHaveLength(0);
+    expect(getMessagesByTask(db, t2.id)).toHaveLength(0);
   });
 
   it('returns 0 when no completed tasks exist', () => {

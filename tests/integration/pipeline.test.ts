@@ -52,7 +52,7 @@ function createTestDb(): Database.Database {
       status TEXT NOT NULL DEFAULT 'unprocessed',
       task_id TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (task_id) REFERENCES tasks(id)
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
     );
     CREATE TABLE IF NOT EXISTS tasks (
       id TEXT PRIMARY KEY,
@@ -201,6 +201,9 @@ describe('integration: workspace config round-trip', () => {
         enabled: true,
         repo: 'user/my-cawpilot',
         backupIntervalDays: 1,
+      },
+      web: {
+        setupEnabled: false,
       },
       model: 'claude-sonnet-4.5',
       workspacePath: tmpDir,

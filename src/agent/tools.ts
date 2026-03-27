@@ -5,6 +5,7 @@ import { createBotMessage } from '../db/messages.js';
 import type { Channel } from '../channels/types.js';
 import { logger } from '../utils/logger.js';
 import type { Orchestrator } from '../agent/orchestrator.js';
+import { isInsideWorkspace } from '../workspace/safety.js';
 
 export type ToolDefinition = {
   description: string;
@@ -116,6 +117,19 @@ export function buildTools(ctx: ToolContext): ToolDefinitions {
           channel: targetChannel,
           sender: targetSender,
         } = sendMessageSchema.parse(args);
+
+        for (const attachment of fileAttachments ?? []) {
+          if (!isInsideWorkspace(attachment.path, ctx.workspacePath)) {
+            logger.warn(
+              `Rejected attachment outside workspace: ${attachment.path}`,
+            );
+            return {
+              sent: false,
+              error: `Attachment path outside workspace: ${attachment.path}`,
+            };
+          }
+        }
+
         const chName = targetChannel ?? ctx.sourceChannel;
         const chSender = targetSender ?? ctx.sourceSender;
         const channel = ctx.channels.get(chName);

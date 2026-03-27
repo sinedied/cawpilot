@@ -27,6 +27,12 @@ export function closeDb(): void {
 }
 
 function initSchema(db: Database.Database): void {
+  createTables(db);
+  ensureMessagesCascadeDelete(db);
+  createIndexes(db);
+}
+
+function createTables(db: Database.Database): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS messages (
       id TEXT PRIMARY KEY,
@@ -38,7 +44,7 @@ function initSchema(db: Database.Database): void {
       status TEXT NOT NULL DEFAULT 'unprocessed',
       task_id TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (task_id) REFERENCES tasks(id)
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
     );
 
     CREATE TABLE IF NOT EXISTS tasks (
@@ -61,10 +67,93 @@ function initSchema(db: Database.Database): void {
       next_run TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+  `);
+}
 
+function createIndexes(db: Database.Database): void {
+  db.exec(`
     CREATE INDEX IF NOT EXISTS idx_messages_status ON messages(status);
     CREATE INDEX IF NOT EXISTS idx_messages_task_id ON messages(task_id);
     CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
     CREATE INDEX IF NOT EXISTS idx_scheduled_enabled ON scheduled_tasks(enabled);
   `);
+}
+
+function ensureMessagesCascadeDelete(db: Database.Database): void {
+  const foreignKeys = db
+    .prepare(`PRAGMA foreign_key_list(messages)`)
+    .all() as Array<{
+    table: string;
+    from: string;
+    on_delete: string;
+  }>;
+
+  const taskForeignKey = foreignKeys.find(
+    (foreignKey) =>
+      foreignKey.table === 'tasks' && foreignKey.from === 'task_id',
+  );
+
+  if (!taskForeignKey || taskForeignKey.on_delete.toUpperCase() === 'CASCADE') {
+    return;
+  }
+
+  logger.info('Migrating messages.task_id foreign key to ON DELETE CASCADE');
+  const foreignKeysEnabled =
+    (db.pragma('foreign_keys', { simple: true }) as number) === 1;
+
+  if (foreignKeysEnabled) {
+    db.pragma('foreign_keys = OFF');
+  }
+
+  const migrate = db.transaction(() => {
+    db.exec(`
+      ALTER TABLE messages RENAME TO messages_legacy;
+
+      CREATE TABLE messages (
+        id TEXT PRIMARY KEY,
+        channel TEXT NOT NULL,
+        sender TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'user',
+        content TEXT NOT NULL,
+        attachments TEXT DEFAULT '[]',
+        status TEXT NOT NULL DEFAULT 'unprocessed',
+        task_id TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+      );
+
+      INSERT INTO messages (
+        id,
+        channel,
+        sender,
+        role,
+        content,
+        attachments,
+        status,
+        task_id,
+        created_at
+      )
+      SELECT
+        id,
+        channel,
+        sender,
+        role,
+        content,
+        attachments,
+        status,
+        task_id,
+        created_at
+      FROM messages_legacy;
+
+      DROP TABLE messages_legacy;
+    `);
+  });
+
+  try {
+    migrate();
+  } finally {
+    if (foreignKeysEnabled) {
+      db.pragma('foreign_keys = ON');
+    }
+  }
 }

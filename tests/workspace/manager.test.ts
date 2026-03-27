@@ -8,6 +8,10 @@ import {
   isSafeBranch,
   getReposPath,
 } from '../../src/workspace/manager.js';
+import {
+  validateBranchName,
+  validateRepoName,
+} from '../../src/workspace/safety.js';
 
 describe('workspace/manager', () => {
   let tmpDir: string;
@@ -47,6 +51,30 @@ describe('workspace/manager', () => {
       expect(isSafeBranch('main')).toBe(false);
       expect(isSafeBranch('feature-cp')).toBe(false);
       expect(isSafeBranch('')).toBe(false);
+    });
+
+    it('rejects invalid branch names', () => {
+      expect(() => validateBranchName('cp-test$(whoami)')).toThrow(
+        /Invalid branch name/,
+      );
+      expect(() => validateBranchName('cp-test;rm-rf')).toThrow(
+        /Invalid branch name/,
+      );
+    });
+  });
+
+  describe('validateRepoName', () => {
+    it('accepts owner/repo identifiers', () => {
+      expect(validateRepoName('owner/repo')).toBe('owner/repo');
+    });
+
+    it('rejects invalid repo names', () => {
+      expect(() => validateRepoName('owner/repo`whoami`')).toThrow(
+        /Invalid repository name/,
+      );
+      expect(() => validateRepoName('owner repo')).toThrow(
+        /Invalid repository name/,
+      );
     });
   });
 

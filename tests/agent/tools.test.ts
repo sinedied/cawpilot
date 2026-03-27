@@ -1,5 +1,9 @@
 import Database from 'better-sqlite3';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { randomUUID } from 'node:crypto';
 import { buildTools, type ToolContext } from '../../src/agent/tools.js';
 import type { Channel } from '../../src/channels/types.js';
 
@@ -50,6 +54,7 @@ describe('agent/tools', () => {
   let channels: Map<string, Channel>;
   let cliChannel: ReturnType<typeof makeChannel>;
   let tgChannel: ReturnType<typeof makeChannel>;
+  let workspacePath: string;
 
   beforeEach(() => {
     db = makeDb();
@@ -58,13 +63,19 @@ describe('agent/tools', () => {
     channels = new Map<string, Channel>();
     channels.set('cli', cliChannel);
     channels.set('telegram', tgChannel);
+    workspacePath = join(tmpdir(), `cawpilot-tools-${randomUUID()}`);
+    mkdirSync(workspacePath, { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(workspacePath, { recursive: true, force: true });
   });
 
   function ctx(overrides?: Partial<ToolContext>): ToolContext {
     return {
       db,
       channels,
-      workspacePath: '/tmp/test',
+      workspacePath,
       taskId: 'task-1',
       sourceChannel: 'cli',
       sourceSender: 'local',
@@ -110,6 +121,34 @@ describe('agent/tools', () => {
         sent: false,
         error: 'Channel "discord" not found',
       });
+    });
+
+    it('rejects attachments outside the workspace', async () => {
+      const tools = buildTools(ctx());
+      const result = await tools.send_message.handler({
+        content: 'secret',
+        attachments: [{ path: '/etc/passwd' }],
+      });
+
+      expect(result).toEqual({
+        sent: false,
+        error: 'Attachment path outside workspace: /etc/passwd',
+      });
+      expect(cliChannel.sent).toHaveLength(0);
+    });
+
+    it('allows attachments inside the workspace', async () => {
+      const attachmentPath = join(workspacePath, 'artifact.txt');
+      writeFileSync(attachmentPath, 'artifact');
+
+      const tools = buildTools(ctx());
+      const result = await tools.send_message.handler({
+        content: 'artifact',
+        attachments: [{ path: attachmentPath }],
+      });
+
+      expect(result).toEqual({ sent: true, channel: 'cli' });
+      expect(cliChannel.sent).toHaveLength(1);
     });
   });
 

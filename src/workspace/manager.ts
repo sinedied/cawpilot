@@ -1,9 +1,12 @@
-import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { logger } from '../utils/logger.js';
-
-const BRANCH_PREFIX = 'cp-';
+import { runCommand } from './commands.js';
+import {
+  BRANCH_PREFIX,
+  validateBranchName,
+  validateRepoName,
+} from './safety.js';
 
 export function getReposPath(workspacePath: string): string {
   return join(workspacePath, 'repos');
@@ -16,26 +19,27 @@ export function ensureWorkspace(workspacePath: string): void {
 }
 
 export function cloneRepo(workspacePath: string, repoFullName: string): string {
+  const safeRepoName = validateRepoName(repoFullName);
   const reposDir = getReposPath(workspacePath);
-  const repoDir = join(reposDir, repoFullName.replace('/', '_'));
+  const repoDir = join(reposDir, safeRepoName.replace('/', '_'));
 
   if (existsSync(repoDir)) {
-    logger.debug(`Repo ${repoFullName} already cloned at ${repoDir}`);
+    logger.debug(`Repo ${safeRepoName} already cloned at ${repoDir}`);
     pullRepo(repoDir);
     return repoDir;
   }
 
-  logger.info(`Cloning ${repoFullName}...`);
-  execSync(`gh repo clone ${repoFullName} "${repoDir}"`, {
+  logger.info(`Cloning ${safeRepoName}...`);
+  runCommand('gh', ['repo', 'clone', safeRepoName, repoDir], {
     stdio: 'pipe',
   });
-  logger.info(`Cloned ${repoFullName} to ${repoDir}`);
+  logger.info(`Cloned ${safeRepoName} to ${repoDir}`);
   return repoDir;
 }
 
 export function pullRepo(repoDir: string): void {
   try {
-    execSync('git pull --ff-only', { cwd: repoDir, stdio: 'pipe' });
+    runCommand('git', ['pull', '--ff-only'], { cwd: repoDir, stdio: 'pipe' });
     logger.debug(`Pulled latest for ${basename(repoDir)}`);
   } catch {
     logger.warn(
@@ -45,21 +49,27 @@ export function pullRepo(repoDir: string): void {
 }
 
 export function createBranch(repoDir: string, branchName: string): string {
-  const safeName = ensureBranchPrefix(branchName);
-  execSync(`git checkout -b ${safeName}`, { cwd: repoDir, stdio: 'pipe' });
+  const safeName = validateBranchName(branchName);
+  runCommand('git', ['checkout', '-b', safeName], {
+    cwd: repoDir,
+    stdio: 'pipe',
+  });
   logger.info(`Created branch ${safeName} in ${basename(repoDir)}`);
   return safeName;
 }
 
 export function checkoutBranch(repoDir: string, branchName: string): void {
-  const safeName = ensureBranchPrefix(branchName);
-  execSync(`git checkout ${safeName}`, { cwd: repoDir, stdio: 'pipe' });
+  const safeName = validateBranchName(branchName);
+  runCommand('git', ['checkout', safeName], { cwd: repoDir, stdio: 'pipe' });
   logger.debug(`Checked out ${safeName} in ${basename(repoDir)}`);
 }
 
 export function pushBranch(repoDir: string, branchName: string): void {
-  const safeName = ensureBranchPrefix(branchName);
-  execSync(`git push -u origin ${safeName}`, { cwd: repoDir, stdio: 'pipe' });
+  const safeName = validateBranchName(branchName);
+  runCommand('git', ['push', '-u', 'origin', safeName], {
+    cwd: repoDir,
+    stdio: 'pipe',
+  });
   logger.info(`Pushed ${safeName} in ${basename(repoDir)}`);
 }
 
@@ -68,37 +78,45 @@ export function createPullRequest(
   title: string,
   body: string,
 ): string {
-  const result = execSync(
-    `gh pr create --title "${title.replaceAll('"', String.raw`\"`)}" --body "${body.replaceAll('"', String.raw`\"`)}" --head "$(git branch --show-current)"`,
+  const currentBranch = validateBranchName(getCurrentBranch(repoDir));
+  const prUrl = runCommand(
+    'gh',
+    ['pr', 'create', '--title', title, '--body', body, '--head', currentBranch],
     { cwd: repoDir, stdio: 'pipe' },
   );
-  const prUrl = result.toString().trim();
   logger.info(`Created PR: ${prUrl}`);
   return prUrl;
 }
 
 export function getCurrentBranch(repoDir: string): string {
-  return execSync('git branch --show-current', { cwd: repoDir, stdio: 'pipe' })
-    .toString()
-    .trim();
+  return runCommand('git', ['branch', '--show-current'], {
+    cwd: repoDir,
+    stdio: 'pipe',
+  });
 }
 
 export function isSafeBranch(branchName: string): boolean {
   return branchName.startsWith(BRANCH_PREFIX);
 }
 
-function ensureBranchPrefix(branchName: string): string {
-  if (branchName.startsWith(BRANCH_PREFIX)) return branchName;
-  return `${BRANCH_PREFIX}${branchName}`;
-}
-
 export function listUserRepos(): string[] {
   try {
-    const result = execSync(
-      'gh repo list --json nameWithOwner --limit 100 -q ".[].nameWithOwner"',
+    return runCommand(
+      'gh',
+      [
+        'repo',
+        'list',
+        '--json',
+        'nameWithOwner',
+        '--limit',
+        '100',
+        '-q',
+        '.[].nameWithOwner',
+      ],
       { stdio: 'pipe' },
-    );
-    return result.toString().trim().split('\n').filter(Boolean);
+    )
+      .split('\n')
+      .filter(Boolean);
   } catch {
     logger.error('Failed to list repos. Is GitHub CLI authenticated?');
     return [];
@@ -107,8 +125,9 @@ export function listUserRepos(): string[] {
 
 export function getGitHubUser(): string | undefined {
   try {
-    const result = execSync('gh api user -q .login', { stdio: 'pipe' });
-    return result.toString().trim() || undefined;
+    return runCommand('gh', ['api', 'user', '-q', '.login'], {
+      stdio: 'pipe',
+    });
   } catch {
     return undefined;
   }

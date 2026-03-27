@@ -29,7 +29,7 @@ export type CommandHandler = (
 
 export type Channel = {
   readonly name: string;
-  /** Whether this channel can push messages to users (e.g. CLI, Telegram can; HTTP cannot). */
+  /** Whether this channel can proactively send messages back to the user. */
   readonly canPushMessages: boolean;
   start(onMessage: MessageHandler): Promise<void>;
   stop(): Promise<void>;
@@ -40,6 +40,6 @@ export type Channel = {
   ): Promise<void>;
   /** Set the handler for slash commands (e.g. /pair, /bootstrap). Called before start(). */
   setCommandHandler?(handler: CommandHandler): void;
-  /** Wait for the next message from a specific sender. Used by onUserInputRequest. */
+  /** Wait for the next inbound message from a specific sender when interactive prompts are supported. */
   waitForInput?(sender: string): Promise<string>;
 };

@@ -1,4 +1,3 @@
-import path from 'node:path';
 import process from 'node:process';
 import {
   CopilotClient,
@@ -8,7 +7,9 @@ import {
   type PermissionRequestResult,
 } from '@github/copilot-sdk';
 import { getSkillsPath } from '../workspace/config.js';
+import { isInsideWorkspace } from '../workspace/safety.js';
 import { logger } from '../utils/logger.js';
+import type { Channel } from '../channels/types.js';
 import type {
   AgentProvider,
   AgentSession,
@@ -17,6 +18,11 @@ import type {
   SessionOptions,
   SendOptions,
 } from './provider.js';
+
+type InteractiveChannel = Pick<
+  Channel,
+  'canPushMessages' | 'send' | 'waitForInput'
+>;
 
 class CopilotAgentSession implements AgentSession {
   readonly sessionId: string;
@@ -101,20 +107,7 @@ class CopilotAgentSession implements AgentSession {
   }
 }
 
-/**
- * Check whether a resolved file path is inside the allowed workspace.
- */
-export function isInsideWorkspace(
-  filePath: string,
-  workspacePath: string,
-): boolean {
-  const resolved = path.resolve(workspacePath, filePath);
-  const normalizedWorkspace = path.resolve(workspacePath) + path.sep;
-  return (
-    resolved === path.resolve(workspacePath) ||
-    resolved.startsWith(normalizedWorkspace)
-  );
-}
+export { isInsideWorkspace } from '../workspace/safety.js';
 
 export function createSandboxedPermissionHandler(
   workspacePath: string,
@@ -171,6 +164,23 @@ export function createSandboxedPermissionHandler(
 
     return { kind: 'approved' as const };
   };
+}
+
+export async function resolveUserInputRequest(
+  channelName: string,
+  sender: string,
+  question: string,
+  channel?: InteractiveChannel,
+): Promise<{ answer: string; wasFreeform: true }> {
+  if (channel?.canPushMessages && channel.waitForInput) {
+    await channel.send(sender, `❓ ${question}`);
+    const answer = await channel.waitForInput(sender);
+    return { answer, wasFreeform: true };
+  }
+
+  throw new Error(
+    `Interactive clarification is not supported on the ${channelName} channel because it cannot push prompts back to the user. Retry from CLI or Telegram instead.`,
+  );
 }
 
 export class CopilotProvider implements AgentProvider {
@@ -250,14 +260,12 @@ export class CopilotProvider implements AgentProvider {
       >[0]['provider'],
       onPermissionRequest: createSandboxedPermissionHandler(workspacePath),
       async onUserInputRequest(request: { question: string }) {
-        const channel = options.channels.get(options.sourceChannel);
-        if (channel?.canPushMessages && channel.waitForInput) {
-          await channel.send(options.sourceSender, `❓ ${request.question}`);
-          const answer = await channel.waitForInput(options.sourceSender);
-          return { answer, wasFreeform: true };
-        }
-
-        return { answer: 'Waiting for user response...', wasFreeform: true };
+        return resolveUserInputRequest(
+          options.sourceChannel,
+          options.sourceSender,
+          request.question,
+          options.channels.get(options.sourceChannel),
+        );
       },
     });
 
