@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3';
 import type { CawpilotConfig } from '../workspace/config.js';
 import type { Channel } from '../channels/types.js';
 import {
+  createBotMessage,
   getUnprocessedMessages,
   markMessagesProcessing,
   getRecentHistory,
@@ -27,14 +28,17 @@ type TaskPlan = {
 };
 
 type TaskReadyHandler = (task: Task, contextMessageIds?: string[]) => void;
+type ReconcileActiveTasksHandler = () => number;
 
 export class MessageIntakeService {
   private pollTimer: ReturnType<typeof setInterval> | undefined;
+  private readonly queuedNoticeIds = new Set<string>();
 
   constructor(
     private readonly config: CawpilotConfig,
     private readonly db: Database.Database,
     private readonly channels: Map<string, Channel>,
+    private readonly reconcileActiveTasks: ReconcileActiveTasksHandler,
     private readonly onTaskReady: TaskReadyHandler,
   ) {}
 
@@ -61,6 +65,13 @@ export class MessageIntakeService {
     const messages = getUnprocessedMessages(this.db);
     if (messages.length === 0) return;
 
+    const recoveredTasks = this.reconcileActiveTasks();
+    if (recoveredTasks > 0) {
+      logger.info(
+        `Recovered ${recoveredTasks} stale task(s) before processing new messages`,
+      );
+    }
+
     const activeTasks = getActiveTasks(this.db);
     const inProgress = activeTasks.filter(
       (task) => task.status === 'in-progress',
@@ -68,6 +79,7 @@ export class MessageIntakeService {
     const availableSlots = this.config.maxConcurrency - inProgress.length;
 
     if (availableSlots <= 0) {
+      await this.notifyQueuedMessages(messages, inProgress);
       logger.debug('All task slots full, deferring message processing');
       return;
     }
@@ -82,6 +94,7 @@ export class MessageIntakeService {
       for (const plan of taskPlan.slice(0, availableSlots)) {
         const task = createTask(this.db, plan.title);
         markMessagesProcessing(this.db, plan.messageIds, task.id);
+        this.clearQueuedNotices(plan.messageIds);
         this.onTaskReady(task, plan.contextMessageIds);
       }
     } catch (error) {
@@ -107,6 +120,7 @@ export class MessageIntakeService {
       }
 
       markMessagesProcessing(this.db, [message.id], needInfoTask.id);
+      this.clearQueuedNotices([message.id]);
       const newTitle = message.content.slice(0, 100);
       updateTaskTitle(this.db, needInfoTask.id, newTitle);
       needInfoTask.title = newTitle;
@@ -118,6 +132,61 @@ export class MessageIntakeService {
     }
 
     return remaining;
+  }
+
+  private clearQueuedNotices(messageIds: string[]): void {
+    for (const messageId of messageIds) {
+      this.queuedNoticeIds.delete(messageId);
+    }
+  }
+
+  private async notifyQueuedMessages(
+    messages: ReturnType<typeof getUnprocessedMessages>,
+    inProgress: Task[],
+  ): Promise<void> {
+    const oldestRunningTask = inProgress[0];
+    if (!oldestRunningTask) return;
+
+    const pendingNotifications = new Map<
+      string,
+      { channel: string; sender: string; messageIds: string[] }
+    >();
+
+    for (const message of messages) {
+      if (this.queuedNoticeIds.has(message.id)) continue;
+
+      const key = `${message.channel}\u0000${message.sender}`;
+      const entry = pendingNotifications.get(key) ?? {
+        channel: message.channel,
+        sender: message.sender,
+        messageIds: [],
+      };
+      entry.messageIds.push(message.id);
+      pendingNotifications.set(key, entry);
+    }
+
+    if (pendingNotifications.size === 0) return;
+
+    const cancelCommand = `/cancel ${oldestRunningTask.id.slice(0, 8)}`;
+    const content = [
+      'All task slots are currently busy, so I queued your request.',
+      `Oldest running task: ${oldestRunningTask.title}`,
+      `Do you want me to cancel it to free a slot? If yes, send ${cancelCommand}.`,
+    ].join('\n');
+
+    await Promise.all(
+      [...pendingNotifications.values()].map(async (entry) => {
+        const channel = this.channels.get(entry.channel);
+        if (channel?.canPushMessages) {
+          await channel.send(entry.sender, content);
+          createBotMessage(this.db, entry.channel, entry.sender, content);
+        }
+
+        for (const messageId of entry.messageIds) {
+          this.queuedNoticeIds.add(messageId);
+        }
+      }),
+    );
   }
 
   private async triageMessages(

@@ -36,6 +36,7 @@ export class Orchestrator {
       config,
       db,
       channels,
+      () => this.taskRegistry.reconcileActiveTasks(),
       (task, contextMessageIds) => {
         this.dispatchTask(task, contextMessageIds);
       },

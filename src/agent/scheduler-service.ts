@@ -10,7 +10,12 @@ import {
   getAllScheduledTasks,
   updateScheduledTaskRun,
 } from '../db/scheduled.js';
-import { createTask, type Task } from '../db/tasks.js';
+import {
+  createTask,
+  getTaskById,
+  updateTaskStatus,
+  type Task,
+} from '../db/tasks.js';
 import { logger } from '../utils/logger.js';
 import { TASK_SYSTEM_PROMPT, buildTaskPrompt } from './prompts.js';
 import { buildTools, type ToolContext } from './tools.js';
@@ -19,6 +24,19 @@ import { notifyAutoBackup } from './notifications.js';
 import type { TaskRegistry } from './task-registry.js';
 
 const SCHEDULER_INTERVAL_MS = 60_000;
+
+function buildCompletionSummary(lastAssistantMessage?: string): string {
+  const trimmed = lastAssistantMessage?.trim();
+  if (!trimmed) {
+    return 'Scheduled task completed without an explicit status update.';
+  }
+
+  return trimmed.slice(0, 2000);
+}
+
+function isTaskSettled(status: Task['status']): boolean {
+  return status !== 'pending' && status !== 'in-progress';
+}
 
 type SchedulerCallbacks = {
   onProcessedTask: () => void;
@@ -136,6 +154,8 @@ export class SchedulerService {
 
   private async runScheduledTask(task: Task, prompt: string): Promise<void> {
     try {
+      let lastAssistantMessage: string | undefined;
+
       const toolCtx: ToolContext = {
         db: this.db,
         channels: this.channels,
@@ -154,6 +174,9 @@ export class SchedulerService {
         sourceSender: 'scheduler',
         systemPrompt: TASK_SYSTEM_PROMPT,
         tools: buildTools(toolCtx),
+        onAssistantMessage(content) {
+          lastAssistantMessage = content;
+        },
       });
 
       this.taskRegistry.registerSession(task.id, session);
@@ -174,9 +197,31 @@ export class SchedulerService {
         })),
       });
       await session.disconnect();
+
+      const currentTask = getTaskById(this.db, task.id);
+      if (currentTask && !isTaskSettled(currentTask.status)) {
+        updateTaskStatus(
+          this.db,
+          task.id,
+          'completed',
+          buildCompletionSummary(lastAssistantMessage),
+        );
+      }
+
       this.callbacks.onProcessedTask();
     } catch (error) {
-      logger.error(`Scheduled task ${task.id} failed: ${error}`);
+      const errMsg = error instanceof Error ? error.message : String(error);
+      const currentTask = getTaskById(this.db, task.id);
+      if (currentTask && isTaskSettled(currentTask.status)) {
+        logger.warn(
+          `Ignoring late scheduled task error for ${task.id} after status ${currentTask.status}: ${errMsg}`,
+        );
+        this.callbacks.onProcessedTask();
+        return;
+      }
+
+      updateTaskStatus(this.db, task.id, 'failed', errMsg);
+      logger.error(`Scheduled task ${task.id} failed: ${errMsg}`);
     }
   }
 

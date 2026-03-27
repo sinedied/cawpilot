@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type Database from 'better-sqlite3';
+import { createBotMessage, markMessagesProcessed } from '../db/messages.js';
 import { updateTaskStatus } from '../db/tasks.js';
-import { createBotMessage } from '../db/messages.js';
 import type { Channel } from '../channels/types.js';
 import { logger } from '../utils/logger.js';
 import type { Orchestrator } from '../agent/orchestrator.js';
@@ -196,6 +196,10 @@ export function buildTools(ctx: ToolContext): ToolDefinitions {
         }
 
         updateTaskStatus(ctx.db, taskId, status, result);
+        if (status !== 'pending' && status !== 'in-progress') {
+          markMessagesProcessed(ctx.db, taskId);
+        }
+
         logger.debug(`Task ${taskId} updated to ${status}`);
         return { updated: true };
       },

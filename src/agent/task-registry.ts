@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
-import { getTaskById, updateTaskStatus } from '../db/tasks.js';
+import { markMessagesProcessed } from '../db/messages.js';
+import { getActiveTasks, getTaskById, updateTaskStatus } from '../db/tasks.js';
 import type { AgentSession } from '../providers/provider.js';
 import { logger } from '../utils/logger.js';
 import { notifyTaskCancelled } from './notifications.js';
@@ -27,6 +28,26 @@ export class TaskRegistry {
     this.activeSessions.delete(taskId);
   }
 
+  reconcileActiveTasks(): number {
+    const staleTasks = getActiveTasks(this.db).filter(
+      (task) =>
+        !this.runningTasks.has(task.id) && !this.activeSessions.has(task.id),
+    );
+
+    for (const task of staleTasks) {
+      updateTaskStatus(
+        this.db,
+        task.id,
+        'completed',
+        'Automatically completed during recovery because no matching live Copilot task was found. If this work was interrupted, resend it.',
+      );
+      markMessagesProcessed(this.db, task.id);
+      logger.warn(`Recovered stale task ${task.id} (${task.status})`);
+    }
+
+    return staleTasks.length;
+  }
+
   async cancelTask(taskId: string): Promise<boolean> {
     const task = getTaskById(this.db, taskId);
     if (!task || (task.status !== 'in-progress' && task.status !== 'pending')) {
@@ -46,6 +67,7 @@ export class TaskRegistry {
     }
 
     updateTaskStatus(this.db, taskId, 'cancelled', 'Cancelled by user');
+    markMessagesProcessed(this.db, taskId);
     this.runningTasks.delete(taskId);
     logger.info(`Task ${taskId} cancelled`);
     notifyTaskCancelled(task.title);

@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3';
 import { type CawpilotConfig, getContextFiles } from '../workspace/config.js';
 import type { Channel } from '../channels/types.js';
-import { getMessagesByTask } from '../db/messages.js';
+import { getMessagesByTask, markMessagesProcessed } from '../db/messages.js';
 import {
   getTaskById,
   updateTaskStatus,
@@ -13,6 +13,19 @@ import { createTaskSession } from './runtime.js';
 import { TASK_SYSTEM_PROMPT, buildTaskPrompt } from './prompts.js';
 import { buildTools, type ToolContext } from './tools.js';
 import type { Orchestrator } from './orchestrator.js';
+
+function buildCompletionSummary(lastAssistantMessage?: string): string {
+  const trimmed = lastAssistantMessage?.trim();
+  if (!trimmed) {
+    return 'Task completed without an explicit status update.';
+  }
+
+  return trimmed.slice(0, 2000);
+}
+
+function isTaskSettled(status: Task['status']): boolean {
+  return status !== 'pending' && status !== 'in-progress';
+}
 
 export type RunTaskOptions = {
   task: Task;
@@ -38,6 +51,7 @@ export async function runTask({
   if (messages.length === 0) {
     logger.warn(`Task ${task.id} has no messages, marking as failed`);
     updateTaskStatus(db, task.id, 'failed', 'No messages attached to task');
+    markMessagesProcessed(db, task.id);
     return;
   }
 
@@ -62,6 +76,8 @@ export async function runTask({
   });
 
   try {
+    let lastAssistantMessage: string | undefined;
+
     const toolCtx: ToolContext = {
       db,
       channels,
@@ -83,6 +99,7 @@ export async function runTask({
       tools: buildTools(toolCtx),
       orchestrator,
       onAssistantMessage(content) {
+        lastAssistantMessage = content;
         logger.debug(`Task ${task.id} assistant: ${content.slice(0, 100)}...`);
       },
     });
@@ -99,18 +116,33 @@ export async function runTask({
     });
 
     await session.disconnect();
+
+    const currentTask = getTaskById(db, task.id);
+    if (currentTask && !isTaskSettled(currentTask.status)) {
+      updateTaskStatus(
+        db,
+        task.id,
+        'completed',
+        buildCompletionSummary(lastAssistantMessage),
+      );
+    }
+
+    markMessagesProcessed(db, task.id);
     logger.info(`Task ${task.id} completed`);
   } catch (error) {
-    // If the task was already cancelled, don't overwrite status
+    const errMsg = error instanceof Error ? error.message : String(error);
     const currentTask = getTaskById(db, task.id);
-    if (currentTask?.status === 'cancelled') {
-      logger.info(`Task ${task.id} was cancelled`);
+    if (currentTask && isTaskSettled(currentTask.status)) {
+      markMessagesProcessed(db, task.id);
+      logger.warn(
+        `Ignoring late task error for ${task.id} after status ${currentTask.status}: ${errMsg}`,
+      );
       return;
     }
 
-    const errMsg = error instanceof Error ? error.message : String(error);
     logger.error(`Task ${task.id} failed: ${errMsg}`);
     updateTaskStatus(db, task.id, 'failed', errMsg);
+    markMessagesProcessed(db, task.id);
 
     // Notify user of failure
     const channel = channels.get(sourceMessage.channel);
