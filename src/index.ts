@@ -8,10 +8,6 @@ import { runStart } from './cli/start.js';
 import { runDoctor } from './cli/doctor.js';
 import { logger } from './utils/logger.js';
 
-// Ensure CTRL+C always exits cleanly (overridden by start command's own handler)
-process.on('SIGINT', () => process.exit(0));
-process.on('SIGTERM', () => process.exit(0));
-
 // Handle @inquirer/prompts ExitPromptError (thrown on SIGINT during prompts)
 process.on('uncaughtException', (error) => {
   if (error.name === 'ExitPromptError') {

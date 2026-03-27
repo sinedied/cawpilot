@@ -25,6 +25,7 @@ import { logger } from '../utils/logger.js';
 import { loadEnvFile } from '../workspace/env.js';
 import { App } from '../ui/app.js';
 import { handleCommand } from '../commands/handler.js';
+import { registerSignalHandlers } from '../utils/signals.js';
 import { addChatMessage } from './dashboard.js';
 
 export type StartOptions = {
@@ -156,26 +157,35 @@ export async function runStart(
   orchestrator.start();
 
   // Graceful shutdown
+  let shutdownPromise: Promise<void> | undefined;
   const shutdown = async () => {
-    orchestrator.stop();
-
-    const channelEntries = [...channels.entries()];
-    const stopResults = await Promise.allSettled(
-      channelEntries.map(async ([name, channel]) => {
-        await channel.stop();
-        logger.debug(`Channel stopped: ${name}`);
-      }),
-    );
-    for (const [i, result] of stopResults.entries()) {
-      if (result.status === 'rejected') {
-        logger.error(
-          `Error stopping channel ${channelEntries[i][0]}: ${result.reason}`,
-        );
-      }
+    if (shutdownPromise) {
+      return shutdownPromise;
     }
 
-    await stopRuntime();
-    closeDb();
+    shutdownPromise = (async () => {
+      orchestrator.stop();
+
+      const channelEntries = [...channels.entries()];
+      const stopResults = await Promise.allSettled(
+        channelEntries.map(async ([name, channel]) => {
+          await channel.stop();
+          logger.debug(`Channel stopped: ${name}`);
+        }),
+      );
+      for (const [i, result] of stopResults.entries()) {
+        if (result.status === 'rejected') {
+          logger.error(
+            `Error stopping channel ${channelEntries[i][0]}: ${result.reason}`,
+          );
+        }
+      }
+
+      await stopRuntime();
+      closeDb();
+    })();
+
+    return shutdownPromise;
   };
 
   // Dashboard
@@ -183,29 +193,30 @@ export async function runStart(
     // Debug mode: just log, no Ink dashboard
     console.log(chalk.dim('Debug logging enabled. Press Ctrl+C to stop.\n'));
 
-    process.on('SIGINT', () => {
-      console.log(chalk.dim('\nShutting down...'));
-      shutdown()
-        .then(() => {
-          console.log(chalk.green('cawpilot stopped.\n'));
-          process.exit(0);
-        })
-        .catch(() => process.exit(1));
-    });
-    process.on('SIGTERM', () => {
-      shutdown()
-        .then(() => process.exit(0))
-        .catch(() => process.exit(1));
-    });
+    registerSignalHandlers(
+      {
+        SIGINT() {
+          console.log(chalk.dim('\nShutting down...'));
+          shutdown()
+            .then(() => {
+              console.log(chalk.green('cawpilot stopped.\n'));
+              process.exit(0);
+            })
+            .catch(() => process.exit(1));
+        },
+        SIGTERM() {
+          shutdown()
+            .then(() => process.exit(0))
+            .catch(() => process.exit(1));
+        },
+      },
+      { once: true },
+    );
   } else {
     // Normal mode: Ink dashboard in alternate screen
     const handleInput = (text: string) => {
       cliChannel.handleLine(text);
     };
-
-    // Remove global SIGINT/SIGTERM handlers so only Ink's exitOnCtrlC handles Ctrl+C
-    process.removeAllListeners('SIGINT');
-    process.removeAllListeners('SIGTERM');
 
     // Enter alternate screen buffer
     process.stdout.write('\u001B[?1049h');
@@ -223,11 +234,17 @@ export async function runStart(
     );
 
     // Also handle SIGTERM for containerized shutdown
-    process.on('SIGTERM', () => {
-      inkApp.unmount();
-    });
+    const disposeSignalHandlers = registerSignalHandlers(
+      {
+        SIGTERM() {
+          inkApp.unmount();
+        },
+      },
+      { once: true },
+    );
 
     await inkApp.waitUntilExit();
+    disposeSignalHandlers();
 
     // Leave alternate screen buffer
     process.stdout.write('\u001B[?1049l');

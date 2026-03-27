@@ -7,6 +7,7 @@ import chalk from 'chalk';
 import { ensureWorkspace } from '../workspace/manager.js';
 import { loadEnvFile } from '../workspace/env.js';
 import { logger } from '../utils/logger.js';
+import { registerSignalHandlers } from '../utils/signals.js';
 import { renderBanner, gradientText } from '../ui/banner.js';
 import { createSetupRouter } from './routes.js';
 
@@ -58,18 +59,28 @@ export async function runSetupServer(workspacePath: string): Promise<void> {
   });
 
   // Graceful shutdown
-  const shutdown = () => {
-    server.close();
-  };
+  const shutdown = async () =>
+    new Promise<void>((resolve) => {
+      server.close(() => {
+        resolve();
+      });
+    });
 
-  process.on('SIGINT', () => {
-    shutdown();
-    process.exit(0);
-  });
-  process.on('SIGTERM', () => {
-    shutdown();
-    process.exit(0);
-  });
+  registerSignalHandlers(
+    {
+      SIGINT() {
+        shutdown()
+          .then(() => process.exit(0))
+          .catch(() => process.exit(1));
+      },
+      SIGTERM() {
+        shutdown()
+          .then(() => process.exit(0))
+          .catch(() => process.exit(1));
+      },
+    },
+    { once: true },
+  );
 
   // Keep process alive
   await new Promise(() => {});

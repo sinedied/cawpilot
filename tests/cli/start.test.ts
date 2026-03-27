@@ -133,15 +133,30 @@ vi.mock('../../src/commands/handler.js', () => ({
 }));
 
 describe('cli/start', () => {
+  let initialSigintListeners: Function[];
+  let initialSigtermListeners: Function[];
+
   beforeEach(() => {
     handleCommandMock.mockReset();
     startRuntimeMock.mockReset();
     stopRuntimeMock.mockReset();
+    initialSigintListeners = process.listeners('SIGINT');
+    initialSigtermListeners = process.listeners('SIGTERM');
   });
 
   afterEach(() => {
-    process.removeAllListeners('SIGINT');
-    process.removeAllListeners('SIGTERM');
+    for (const listener of process.listeners('SIGINT')) {
+      if (!initialSigintListeners.includes(listener)) {
+        process.off('SIGINT', listener as () => void);
+      }
+    }
+
+    for (const listener of process.listeners('SIGTERM')) {
+      if (!initialSigtermListeners.includes(listener)) {
+        process.off('SIGTERM', listener as () => void);
+      }
+    }
+
     vi.clearAllMocks();
   });
 
