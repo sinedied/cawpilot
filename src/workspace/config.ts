@@ -43,7 +43,7 @@ const DEFAULT_CONFIG: CawpilotConfig = {
   channels: [],
   repos: [],
   skills: [],
-  maxConcurrency: 3,
+  maxConcurrency: 5,
   contextMessagesCount: 10,
   cleanupIntervalDays: 7,
   persistence: {

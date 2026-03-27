@@ -44,7 +44,7 @@ describe('workspace/config', () => {
     expect(config.channels).toEqual([]);
     expect(config.repos).toEqual([]);
     expect(config.skills).toEqual([]);
-    expect(config.maxConcurrency).toBe(3);
+    expect(config.maxConcurrency).toBe(5);
     expect(config.model).toBe('gpt-4.1');
     expect(config.workspacePath).toBe(tmpDir);
   });
@@ -81,7 +81,7 @@ describe('workspace/config', () => {
       channels: [],
       repos: [],
       skills: [],
-      maxConcurrency: 3,
+      maxConcurrency: 5,
       persistence: { enabled: false, repo: '' },
       model: 'gpt-4.1',
       workspacePath: tmpDir,

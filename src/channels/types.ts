@@ -29,7 +29,7 @@ export type CommandHandler = (
 
 export type Channel = {
   readonly name: string;
-  /** Whether this channel can proactively send messages back to the user. */
+  /** Whether this channel can proactively send messages back to the user. Channels without this cannot support interactive clarification prompts. */
   readonly canPushMessages: boolean;
   start(onMessage: MessageHandler): Promise<void>;
   stop(): Promise<void>;

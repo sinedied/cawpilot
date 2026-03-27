@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
@@ -135,6 +135,46 @@ describe('agent/tools', () => {
         error: 'Attachment path outside workspace: /etc/passwd',
       });
       expect(cliChannel.sent).toHaveLength(0);
+    });
+
+    it('rejects traversal paths that resolve outside the workspace', async () => {
+      const outsidePath = join(workspacePath, '..', 'outside-artifact.txt');
+      writeFileSync(outsidePath, 'outside');
+
+      const tools = buildTools(ctx());
+      const result = await tools.send_message.handler({
+        content: 'secret',
+        attachments: [{ path: '../outside-artifact.txt' }],
+      });
+
+      expect(result).toEqual({
+        sent: false,
+        error: 'Attachment path outside workspace: ../outside-artifact.txt',
+      });
+      expect(cliChannel.sent).toHaveLength(0);
+      rmSync(outsidePath, { force: true });
+    });
+
+    it('rejects symlink escapes that point outside the workspace', async () => {
+      const outsideDir = join(tmpdir(), `cawpilot-tools-outside-${randomUUID()}`);
+      mkdirSync(outsideDir, { recursive: true });
+      const outsideFile = join(outsideDir, 'secret.txt');
+      const symlinkPath = join(workspacePath, 'linked-secret.txt');
+      writeFileSync(outsideFile, 'outside');
+      symlinkSync(outsideFile, symlinkPath);
+
+      const tools = buildTools(ctx());
+      const result = await tools.send_message.handler({
+        content: 'secret',
+        attachments: [{ path: symlinkPath }],
+      });
+
+      expect(result).toEqual({
+        sent: false,
+        error: `Attachment path outside workspace: ${symlinkPath}`,
+      });
+      expect(cliChannel.sent).toHaveLength(0);
+      rmSync(outsideDir, { recursive: true, force: true });
     });
 
     it('allows attachments inside the workspace', async () => {

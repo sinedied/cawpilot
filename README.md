@@ -17,7 +17,7 @@
 
 ---
 
-cawpilot is an always-on agent assistant that lives in your terminal and talks to you through Telegram, HTTP webhooks, or the CLI. It manages code, branches, todo lists, and everyday developer workflows through natural conversation — backed by GitHub Copilot's agentic runtime.
+cawpilot is an always-on agent assistant that lives in your terminal and talks to you through Telegram, HTTP webhooks, or the CLI. It manages code, branches, and everyday developer workflows through natural conversation — backed by GitHub Copilot's agentic runtime.
 
 cawpilot operates in a dedicated sandboxed workspace, cloning your connected repositories and working exclusively in safe `cp-*` branches. It never touches your main branches directly.
 
@@ -25,13 +25,12 @@ cawpilot operates in a dedicated sandboxed workspace, cloning your connected rep
 
 - 🤖 **Copilot-powered agent runtime** — leverages the full Copilot SDK with planning, tool invocation, and code editing
 - 💬 **Multi-channel** — Telegram, HTTP REST API, and CLI with a unified interface
-- 🔀 **Parallel task processing** — groups related messages into tasks, processes up to 5 concurrently
+- 🔀 **Parallel task processing** — groups related messages into tasks, processes them concurrently (default: 5)
 - 🔒 **Branch safety** — only works in `cp-*` branches to protect your main codebase
 - 🧩 **Modular skills** — extend capabilities with pluggable skills (following the Copilot SDK skill format)
 - ⏰ **Scheduled tasks** — configure recurring tasks like daily standups, weekly code cleanups, and more
-- 📋 **Todo tracking** — maintains a `TODO.md` with task status visible in your workspace
 - 🔗 **GitHub-native** — creates pull requests, manages repos, and optionally persists config in a private repo
-- 🌐 **Tunnel support** — expose local ports publicly for demos via the built-in local tunnel skill
+- 🌐 **Tunnel support** — expose local ports publicly for demos via the built-in public tunnel skill
 
 ## Getting Started
 
@@ -68,7 +67,7 @@ cawpilot setup
 This walks you through:
 
 1. **Channel selection** — choose Telegram, HTTP API, or both (CLI is always available)
-2. **GitHub authentication** — verify `gh` auth and select repositories to connect
+2. **GitHub authentication** — verify `gh` auth
 3. **Persistence** — optionally store config in a private GitHub repo (default: `<user>/my-cawpilot`)
 4. **Skills** — pick which skills to enable from the available set
 
@@ -132,11 +131,11 @@ During `cawpilot setup`, if you select Telegram:
 │    ┌──────────┐┌──────────┐┌──────────┐                  │
 │    │ Task     ││ Task     ││ Task     │  Copilot SDK     │
 │    │ Session  ││ Session  ││ Session  │  sessions        │
-│    └──────────┘└──────────┘└──────────┘  (up to 5)       │
+│    └──────────┘└──────────┘└──────────┘  (default: 5)   │
 │                                                          │
 │  ┌─────────────────────────────────────────────────────┐ │
 │  │              Sandboxed Workspace                    │ │
-│  │  repos/  .cawpilot/  TODO.md  skills/               │ │
+│  │  repos/  .cawpilot/                                 │ │
 │  └─────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -145,8 +144,8 @@ During `cawpilot setup`, if you select Telegram:
 1. Messages arrive from channels → stored in SQLite
 2. Orchestrator pulls unprocessed messages, groups them into tasks via the LLM
 3. Each task gets its own Copilot SDK session with relevant context and skills
-4. Sessions process tasks in parallel (up to 5 concurrent), report results back through channels
-5. Task status is tracked in `TODO.md` and the database
+4. Sessions process tasks in parallel (default: 5 concurrent), report results back through channels
+5. Task status is tracked in SQLite, and completed tasks are archived to `.cawpilot/archive/`
 
 ## Skills
 
@@ -156,7 +155,7 @@ Skills are modular capabilities loaded at runtime. They follow the [Copilot SDK 
 
 | Skill | Description |
 |-------|-------------|
-| **local-tunnel** | Create temporary public tunnels to expose local ports for demos |
+| **public-tunnel** | Create temporary public tunnels to expose local ports for demos |
 
 ### Adding Custom Skills
 
@@ -174,7 +173,7 @@ Configuration is stored in `<workspace>/.cawpilot/config.json` and includes:
 - Selected repositories
 - Enabled skills
 - Scheduling rules
-- Max task concurrency (default: 3, max: 5)
+- Max task concurrency (default: 5, configurable to any value >= 1)
 
 ### Persistence
 
@@ -234,7 +233,7 @@ docker run -it --rm \
 ```
 
 > [!TIP]
-> The workspace is mounted as a bind volume so your configuration, database, and TODO list persist across container restarts.
+> The workspace is mounted as a bind volume so your configuration, database, archives, and cloned repositories persist across container restarts.
 
 ### Environment Variables
 

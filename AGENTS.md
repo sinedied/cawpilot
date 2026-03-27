@@ -17,7 +17,7 @@ Autonomous developer assistant built on GitHub Copilot SDK. Multi-channel (Teleg
 src/
 ├── index.ts              # CLI entry point (Commander)
 ├── cli/                  # CLI commands (setup, start, doctor, send, dashboard)
-│   ├── setup.ts          # Interactive onboarding (channels, repos, skills, model)
+│   ├── setup.ts          # Interactive onboarding (channels, persistence, skills, model)
 │   ├── start.ts          # Server startup, channel wiring, pairing system, dashboard
 │   ├── doctor.ts         # Diagnostics (Copilot CLI, GitHub auth, config, DB)
 │   ├── send.ts           # Queue a message from another terminal
@@ -36,7 +36,7 @@ src/
 │   ├── server.ts         # Express server for setup mode (port 2243, serves web UI)
 │   ├── routes.ts         # Setup API endpoints (auth, channels, models, skills, complete)
 │   ├── copilot-auth.ts   # Copilot CLI device code relay via SSE
-│   └── env-config.ts     # Env var resolution and step-skip detection
+│   └── steps.ts          # Shared setup helpers and env-driven step status
 ├── workspace/            # Repo management, config, persistence
 │   ├── config.ts         # Config types (ChannelConfig, CawpilotConfig, WebConfig), load/save
 │   ├── manager.ts        # Repo clone/pull, cp-* branch safety, GitHub CLI helpers
@@ -169,12 +169,14 @@ npx tsx src/index.ts doctor
 - **No secrets in code** — all credentials via environment variables or config file (gitignored)
 - **No secrets in output** — never print tokens, API keys, or other secrets to the console during setup or at runtime. Use masked placeholders (e.g. `<see .cawpilot/config.json>`) instead.
 - **Branch safety enforcement** — workspace manager rejects any git write operation not targeting a `cp-*` branch
+- **Attachment path validation** — `send_message` only forwards files that resolve inside the workspace boundary
+- **Shell command safety** — git and GitHub operations use argument-array execution with repo/branch validation, not shell interpolation
 - **Pairing system** — `/pair` generates 8-char codes (XXXX-XXXX) valid for 5 minutes. Only linked channels or CLI can generate codes. `/pair <code>` from an unlinked channel completes linking. Allow lists persisted to config.
 - **HTTP API key** — generated during setup, required in `X-Api-Key` header, validated with timing-safe comparison
 - **Web setup key** — generated in Bicep infra (`uniqueString`), passed as `SETUP_KEY` env var, required in `X-Setup-Key` header for all `/api/setup/*` routes, validated with timing-safe comparison
 - **Web setup deactivation** — `web.setupEnabled` config flag set to `false` after setup completes; can be re-enabled manually in config.json
 - **Unlinked message dropping** — Telegram messages from senders not in the allow list are silently dropped (never stored)
-- **Sandboxed operations** — the agent operates only within the workspace directory
+- **Sandboxed operations** — the agent operates only within the workspace directory, and attachment paths are validated against that boundary before sending
 - **Permission handling** — Copilot SDK tool executions are auto-approved since we control the environment
 - **Input validation** — validate all channel input with zod before processing
 
