@@ -8,7 +8,8 @@ const commands: Array<{ name: string; description: string }> = [
   },
   {
     name: 'cancel',
-    description: 'Cancel an active task (optionally by id or description)',
+    description:
+      'Cancel a task by id or description, or "all" for active tasks',
   },
   {
     name: 'schedule',

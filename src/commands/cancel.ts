@@ -16,6 +16,28 @@ export async function handleCancelCommand(
 
   const input = args.join(' ').trim();
 
+  if (input.toLowerCase() === 'all') {
+    const activeTasks = getActiveTasks(ctx.db);
+
+    if (activeTasks.length === 0) {
+      await channel.send(sender, 'No active tasks to cancel.');
+      return;
+    }
+
+    const results = await Promise.all(
+      activeTasks.map(async (task) => ctx.orchestrator.cancelTask(task.id)),
+    );
+    const cancelledCount = results.filter(Boolean).length;
+
+    await channel.send(
+      sender,
+      cancelledCount === activeTasks.length
+        ? `🚫 Cancelled ${cancelledCount} active task(s).`
+        : `⚠️ Cancelled ${cancelledCount} of ${activeTasks.length} active task(s).`,
+    );
+    return;
+  }
+
   // No argument: cancel the sole active task, or list choices
   if (!input) {
     const active = getActiveTasks(ctx.db).filter(
