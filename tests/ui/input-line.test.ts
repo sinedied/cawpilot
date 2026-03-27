@@ -1,108 +1,81 @@
 import { describe, it, expect } from 'vitest';
-
-/**
- * Tests for the input filtering logic used in InputLine.
- * Extracted as pure functions to test without React/Ink.
- */
-
-/**
- * Replicate the exact sanitization from updateValue() in input-line.tsx.
- * This is the single chokepoint — all value mutations go through this filter.
- */
-function sanitizeValue(input: string): string {
-  return [...input]
-    .filter((ch) => {
-      const cp = ch.codePointAt(0)!;
-      return cp >= 32 && cp !== 127;
-    })
-    .join('');
-}
-
-/** Replicate the input filtering from useInput handler in input-line.tsx */
-function filterInput(input: string): string {
-  const printable = [...input]
-    .filter((ch) => {
-      const cp = ch.codePointAt(0)!;
-      return cp >= 32 && cp !== 127 && ch !== '\x1b';
-    })
-    .join('');
-  // Reject if it looks like a partial escape sequence (e.g. "[A", "[B")
-  if (!printable || /^\[[@-~]$/v.test(printable)) return '';
-  return printable;
-}
+import {
+  filterPrintableInput,
+  sanitizeValue,
+} from '../../src/ui/input-line.js';
 
 describe('input filtering (useInput handler)', () => {
   it('passes normal printable text', () => {
-    expect(filterInput('hello')).toBe('hello');
+    expect(filterPrintableInput('hello')).toBe('hello');
   });
 
   it('passes slash commands', () => {
-    expect(filterInput('/help')).toBe('/help');
+    expect(filterPrintableInput('/help')).toBe('/help');
   });
 
   it('passes single characters', () => {
-    expect(filterInput('a')).toBe('a');
+    expect(filterPrintableInput('a')).toBe('a');
   });
 
   it('rejects control characters', () => {
-    expect(filterInput('\x01')).toBe('');
-    expect(filterInput('\x07')).toBe('');
+    expect(filterPrintableInput('\x01')).toBe('');
+    expect(filterPrintableInput('\x07')).toBe('');
   });
 
   it('rejects DEL character (0x7f)', () => {
-    expect(filterInput('\x7f')).toBe('');
+    expect(filterPrintableInput('\x7f')).toBe('');
   });
 
   it('rejects escape character', () => {
-    expect(filterInput('\x1b')).toBe('');
+    expect(filterPrintableInput('\x1b')).toBe('');
   });
 
   it('rejects partial ANSI escape [A (up arrow fragment)', () => {
-    expect(filterInput('[A')).toBe('');
+    expect(filterPrintableInput('[A')).toBe('');
   });
 
   it('rejects partial ANSI escape [B (down arrow fragment)', () => {
-    expect(filterInput('[B')).toBe('');
+    expect(filterPrintableInput('[B')).toBe('');
   });
 
   it('rejects partial ANSI escape [C (right arrow fragment)', () => {
-    expect(filterInput('[C')).toBe('');
+    expect(filterPrintableInput('[C')).toBe('');
   });
 
   it('rejects partial ANSI escape [D (left arrow fragment)', () => {
-    expect(filterInput('[D')).toBe('');
+    expect(filterPrintableInput('[D')).toBe('');
   });
 
   it('rejects partial ANSI escape [H (home fragment)', () => {
-    expect(filterInput('[H')).toBe('');
+    expect(filterPrintableInput('[H')).toBe('');
   });
 
   it('rejects partial ANSI escape [F (end fragment)', () => {
-    expect(filterInput('[F')).toBe('');
+    expect(filterPrintableInput('[F')).toBe('');
   });
 
   it('passes bracket followed by multiple chars (not a sequence)', () => {
-    expect(filterInput('[AB')).toBe('[AB');
+    expect(filterPrintableInput('[AB')).toBe('[AB');
   });
 
   it('passes standalone bracket', () => {
-    expect(filterInput('[')).toBe('[');
+    expect(filterPrintableInput('[')).toBe('[');
   });
 
   it('strips mixed control and printable chars', () => {
-    expect(filterInput('a\x01b')).toBe('ab');
+    expect(filterPrintableInput('a\x01b')).toBe('ab');
   });
 
   it('rejects empty string', () => {
-    expect(filterInput('')).toBe('');
+    expect(filterPrintableInput('')).toBe('');
   });
 
   it('passes unicode characters', () => {
-    expect(filterInput('héllo 🎉')).toBe('héllo 🎉');
+    expect(filterPrintableInput('héllo 🎉')).toBe('héllo 🎉');
   });
 
   it('passes spaces', () => {
-    expect(filterInput(' ')).toBe(' ');
+    expect(filterPrintableInput(' ')).toBe(' ');
   });
 });
 

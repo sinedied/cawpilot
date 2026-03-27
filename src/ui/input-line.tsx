@@ -1,6 +1,36 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
 
+export function sanitizeValue(input: string): string {
+  return [...input]
+    .filter((character) => {
+      const codePoint = character.codePointAt(0);
+      return codePoint !== undefined && codePoint >= 32 && codePoint !== 127;
+    })
+    .join('');
+}
+
+export function filterPrintableInput(input: string): string {
+  const printable = [...input]
+    .filter((character) => {
+      const codePoint = character.codePointAt(0);
+      return (
+        codePoint !== undefined &&
+        codePoint >= 32 &&
+        codePoint !== 127 &&
+        character !== '\u001B'
+      );
+    })
+    .join('');
+
+  // Reject leaked ANSI fragments such as "[A" and "[B" from arrow keys.
+  if (!printable || /^\[[@-~]$/v.test(printable)) {
+    return '';
+  }
+
+  return printable;
+}
+
 type InputLineProps = {
   onSubmit: (text: string) => void;
   onScroll: (delta: number) => void;
@@ -22,12 +52,7 @@ export function InputLine({ onSubmit, onScroll }: InputLineProps) {
   const updateValue = useCallback(
     (next: string, cursor?: number) => {
       // Single chokepoint: ensure value never contains non-printable characters
-      const clean = [...next]
-        .filter((ch) => {
-          const cp = ch.codePointAt(0)!;
-          return cp >= 32 && cp !== 127;
-        })
-        .join('');
+      const clean = sanitizeValue(next);
       valueRef.current = clean;
       cursorRef.current = Math.min(cursor ?? clean.length, clean.length);
       rerender();
@@ -104,12 +129,7 @@ export function InputLine({ onSubmit, onScroll }: InputLineProps) {
 
       // Filter to only printable characters
       if (!input) return;
-      const printable = [...input]
-        .filter((ch) => {
-          const cp = ch.codePointAt(0)!;
-          return cp >= 32 && cp !== 127;
-        })
-        .join('');
+      const printable = filterPrintableInput(input);
       if (printable) {
         const cur = cursorRef.current;
         const v = valueRef.current;
