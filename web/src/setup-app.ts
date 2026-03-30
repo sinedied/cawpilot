@@ -8,7 +8,7 @@ import type { ModelStep } from './steps/model-step.js';
 import type { SkillsStep } from './steps/skills-step.js';
 import type { PersistenceStep } from './steps/persistence-step.js';
 
-const STEPS = [
+const ALL_STEPS = [
   'auth',
   'backup',
   'channels',
@@ -16,7 +16,7 @@ const STEPS = [
   'skills',
   'complete',
 ] as const;
-type StepName = (typeof STEPS)[number];
+type StepName = (typeof ALL_STEPS)[number];
 
 const STEP_LABELS: Record<StepName, string> = {
   auth: 'Auth',
@@ -182,6 +182,13 @@ export class SetupApp extends LitElement {
   @state() ghUser = '';
   @state() isDocker = false;
   @state() theme: 'dark' | 'light' = 'dark';
+  @state() private _persistenceAlreadyConfigured = false;
+
+  private get steps(): readonly StepName[] {
+    return this._persistenceAlreadyConfigured
+      ? ALL_STEPS.filter((s) => s !== 'backup')
+      : ALL_STEPS;
+  }
 
   override connectedCallback() {
     super.connectedCallback();
@@ -222,6 +229,9 @@ export class SetupApp extends LitElement {
 
       if (status.persistence) {
         this._pendingPersistence = status.persistence;
+        if (status.persistence.enabled && status.persistence.repo) {
+          this._persistenceAlreadyConfigured = true;
+        }
       }
     } catch {
       this.authError = 'Invalid setup key. Check the URL.';
@@ -235,7 +245,7 @@ export class SetupApp extends LitElement {
   }
 
   private get currentIndex() {
-    return STEPS.indexOf(this.currentStep);
+    return this.steps.indexOf(this.currentStep);
   }
 
   // Called by auth-step when its completion state changes
@@ -267,17 +277,17 @@ export class SetupApp extends LitElement {
 
   private next() {
     const idx = this.currentIndex;
-    if (idx < STEPS.length - 1) {
+    if (idx < this.steps.length - 1) {
       // Capture current step's data before leaving it
       this.captureStepData(this.currentStep);
-      this.currentStep = STEPS[idx + 1];
+      this.currentStep = this.steps[idx + 1];
     }
   }
 
   private back() {
     const idx = this.currentIndex;
     if (idx > 0) {
-      this.currentStep = STEPS[idx - 1];
+      this.currentStep = this.steps[idx - 1];
     }
   }
 
@@ -398,7 +408,7 @@ export class SetupApp extends LitElement {
       </div>
 
       <div class="stepper">
-        ${STEPS.map(
+        ${this.steps.map(
           (step, i) => html`
             <div class="stepper-segment">
               <div

@@ -79,39 +79,45 @@ export async function runSetup(workspacePath: string): Promise<void> {
 
   spinner.succeed(`Authenticated as ${chalk.green(user)}`);
 
-  // Step 2: Persistence
-  console.log(chalk.bold('\nBack up your config?'));
-  const enablePersistence = await confirm({
-    message: 'Persist configuration in a private GitHub repo? (recommended)',
-    default: true,
-  });
-
-  if (enablePersistence) {
-    const result = await promptPersistenceRepo(config, user);
-    config.persistence = {
-      enabled: true,
-      repo: result.repo,
-      backupIntervalDays: 1,
-    };
-
-    if (result.restore) {
-      const restoreSpinner = ora('Restoring from backup...').start();
-      const restoreResult = restoreFromBackup(workspacePath, result.repo);
-      if (restoreResult.success && restoreResult.config) {
-        restoreSpinner.succeed(restoreResult.message);
-        // Reload config from restored backup, keep persistence settings
-        Object.assign(config, restoreResult.config);
-        config.persistence = {
-          enabled: true,
-          repo: result.repo,
-          backupIntervalDays: 1,
-        };
-      } else {
-        restoreSpinner.warn(restoreResult.message);
-      }
-    }
+  // Step 2: Persistence (skip if already configured)
+  if (config.persistence.enabled && config.persistence.repo) {
+    console.log(
+      chalk.dim(`  Backup already configured → ${config.persistence.repo}`),
+    );
   } else {
-    config.persistence = { enabled: false, repo: '', backupIntervalDays: 1 };
+    console.log(chalk.bold('\nBack up your config?'));
+    const enablePersistence = await confirm({
+      message: 'Persist configuration in a private GitHub repo? (recommended)',
+      default: true,
+    });
+
+    if (enablePersistence) {
+      const result = await promptPersistenceRepo(config, user);
+      config.persistence = {
+        enabled: true,
+        repo: result.repo,
+        backupIntervalDays: 1,
+      };
+
+      if (result.restore) {
+        const restoreSpinner = ora('Restoring from backup...').start();
+        const restoreResult = restoreFromBackup(workspacePath, result.repo);
+        if (restoreResult.success && restoreResult.config) {
+          restoreSpinner.succeed(restoreResult.message);
+          // Reload config from restored backup, keep persistence settings
+          Object.assign(config, restoreResult.config);
+          config.persistence = {
+            enabled: true,
+            repo: result.repo,
+            backupIntervalDays: 1,
+          };
+        } else {
+          restoreSpinner.warn(restoreResult.message);
+        }
+      }
+    } else {
+      config.persistence = { enabled: false, repo: '', backupIntervalDays: 1 };
+    }
   }
 
   // Step 3: Channels
