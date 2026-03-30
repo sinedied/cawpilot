@@ -16,10 +16,12 @@ export class ModelStep extends LitElement {
     `,
   ];
 
-  @property({ type: String }) defaultModel = '';
+  @property({ type: String }) defaultOrchestratorModel = '';
+  @property({ type: String }) defaultTaskModel = '';
 
   @state() models: Array<{ id: string; name: string }> = [];
-  @state() selectedModel = '';
+  @state() selectedOrchestratorModel = '';
+  @state() selectedTaskModel = '';
   @state() loading = true;
   @state() error = '';
 
@@ -36,11 +38,16 @@ export class ModelStep extends LitElement {
         models: Array<{ id: string; name: string }>;
       }>('/models');
       this.models = result.models;
-      this.selectedModel =
-        this.defaultModel ||
+
+      const defaultId =
         this.models.find((m) => m.id === 'gpt-4.1')?.id ||
         this.models[0]?.id ||
         '';
+
+      this.selectedOrchestratorModel =
+        this.defaultOrchestratorModel || defaultId;
+      this.selectedTaskModel =
+        this.defaultTaskModel || defaultId;
     } catch (err) {
       this.error = err instanceof Error ? err.message : 'Failed to load models';
     }
@@ -48,14 +55,18 @@ export class ModelStep extends LitElement {
     this.loading = false;
   }
 
-  get model() {
-    return this.selectedModel;
+  get orchestratorModel() {
+    return this.selectedOrchestratorModel;
+  }
+
+  get taskModel() {
+    return this.selectedTaskModel;
   }
 
   override render() {
     if (this.loading) {
       return html`
-        <div class="step-header">Model</div>
+        <div class="step-header">Models</div>
         <div class="step-desc">
           <span class="spinner"></span> Loading available models...
         </div>
@@ -64,29 +75,46 @@ export class ModelStep extends LitElement {
 
     if (this.error) {
       return html`
-        <div class="step-header">Model</div>
+        <div class="step-header">Models</div>
         <div class="step-desc status-error">${this.error}</div>
         <button class="btn" @click=${this.loadModels}>Retry</button>
       `;
     }
 
     return html`
-      <div class="step-header">Model</div>
+      <div class="step-header">Models</div>
       <div class="step-desc">
-        Select the AI model your agent will use.
+        Select the AI models your agent will use.
       </div>
 
       <div class="field">
-        <label>Model</label>
+        <label>Orchestration model (task routing)</label>
         <select
-          .value=${this.selectedModel}
+          .value=${this.selectedOrchestratorModel}
           @change=${(e: Event) => {
-            this.selectedModel = (e.target as HTMLSelectElement).value;
+            this.selectedOrchestratorModel = (e.target as HTMLSelectElement).value;
           }}
         >
           ${this.models.map(
             (m) =>
-              html`<option value=${m.id} ?selected=${m.id === this.selectedModel}>
+              html`<option value=${m.id} ?selected=${m.id === this.selectedOrchestratorModel}>
+                ${m.name} (${m.id})
+              </option>`,
+          )}
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Task model (running tasks)</label>
+        <select
+          .value=${this.selectedTaskModel}
+          @change=${(e: Event) => {
+            this.selectedTaskModel = (e.target as HTMLSelectElement).value;
+          }}
+        >
+          ${this.models.map(
+            (m) =>
+              html`<option value=${m.id} ?selected=${m.id === this.selectedTaskModel}>
                 ${m.name} (${m.id})
               </option>`,
           )}
@@ -94,7 +122,7 @@ export class ModelStep extends LitElement {
       </div>
 
       <div class="model-info">
-        You can change this later in the config file.
+        You can change these later in the config file.
       </div>
     `;
   }

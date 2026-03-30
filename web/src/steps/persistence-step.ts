@@ -137,7 +137,7 @@ export class PersistenceStep extends LitElement {
         message: string;
         config?: {
           channels: unknown[];
-          model: string;
+          models: { orchestrator: string; task: string };
           skills: string[];
           persistence: {
             enabled: boolean;

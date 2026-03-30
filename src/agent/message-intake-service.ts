@@ -247,6 +247,7 @@ export class MessageIntakeService {
     try {
       const session = await createTaskSession({
         config: this.config,
+        model: this.config.models.orchestrator,
         db: this.db,
         channels: this.channels,
         taskId: 'triage',

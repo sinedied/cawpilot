@@ -37,7 +37,7 @@ export async function handleStatusCommand(
   const lines = [
     `⏱️ Uptime: ${uptime}`,
     `📡 Channels: ${connectedChannels}`,
-    `🧠 Model: ${ctx.config.model ?? 'default'}`,
+    `🧠 Models: orchestrator=${ctx.config.models.orchestrator ?? 'default'}, task=${ctx.config.models.task ?? 'default'}`,
     '',
     `📬 Messages: ${messageCount} total`,
     `📋 Tasks: ${taskCounts.total} total — ✅ ${taskCounts.completed + taskCounts.cancelled} completed, ⏳ ${taskCounts.pending} pending, 🔄 ${taskCounts['in-progress']} in-progress, ❌ ${taskCounts.failed} failed`,

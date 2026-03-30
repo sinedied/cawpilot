@@ -90,6 +90,7 @@ export async function runTask({
 
     const session = await createTaskSession({
       config,
+      model: config.models.task,
       db,
       channels,
       taskId: task.id,

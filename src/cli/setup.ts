@@ -121,9 +121,9 @@ export async function runSetup(workspacePath: string): Promise<void> {
   config.channels = channels;
 
   // Step 4: Copilot CLI & Model
-  console.log(chalk.bold('\nChoose your model'));
-  const model = await setupCopilotAndModel(config.model);
-  config.model = model;
+  console.log(chalk.bold('\nChoose your models'));
+  const models = await setupCopilotAndModels(config.models);
+  config.models = models;
 
   // Step 5: Skills
   console.log(chalk.bold('\nPick your skills'));
@@ -295,7 +295,10 @@ async function setupSkills(_workspacePath: string): Promise<string[]> {
   return selected;
 }
 
-async function setupCopilotAndModel(currentModel: string): Promise<string> {
+async function setupCopilotAndModels(currentModels: {
+  orchestrator: string;
+  task: string;
+}): Promise<{ orchestrator: string; task: string }> {
   // Check Copilot CLI is installed
   let copilotOk = false;
   const spinner = ora('Checking Copilot CLI...').start();
@@ -325,13 +328,13 @@ async function setupCopilotAndModel(currentModel: string): Promise<string> {
         console.log(
           chalk.yellow('  Install manually: npm install -g @github/copilot\n'),
         );
-        return currentModel;
+        return currentModels;
       }
     } else {
       console.log(
         chalk.yellow('  cawpilot requires the Copilot CLI to operate.\n'),
       );
-      return currentModel;
+      return currentModels;
     }
   }
 
@@ -351,18 +354,18 @@ async function setupCopilotAndModel(currentModel: string): Promise<string> {
       });
       if (loginResult.status !== 0) {
         console.log(chalk.red('\n  Copilot authentication failed.'));
-        console.log(chalk.yellow(`  Keeping current model: ${currentModel}\n`));
+        console.log(chalk.yellow('  Keeping current models.\n'));
         await stopRuntime().catch(() => {});
-        return currentModel;
+        return currentModels;
       }
 
       // Re-check after login
       const recheck = await checkCopilotAuth();
       if (!recheck.isAuthenticated) {
         console.log(chalk.red('\n  Copilot authentication failed.'));
-        console.log(chalk.yellow(`  Keeping current model: ${currentModel}\n`));
+        console.log(chalk.yellow('  Keeping current models.\n'));
         await stopRuntime().catch(() => {});
-        return currentModel;
+        return currentModels;
       }
 
       authSpinner.stop();
@@ -381,30 +384,43 @@ async function setupCopilotAndModel(currentModel: string): Promise<string> {
     await stopRuntime();
 
     if (models.length === 0) {
-      modelSpinner.warn('Could not fetch models. Using current model setting.');
-      return currentModel;
+      modelSpinner.warn(
+        'Could not fetch models. Using current model settings.',
+      );
+      return currentModels;
     }
 
     modelSpinner.succeed(`Found ${models.length} available model(s)`);
 
-    const chosen = await select({
-      message: 'Select the model to use:',
-      choices: models.map((m) => ({
-        name: `${m.name} ${chalk.dim(`(${m.id})`)}`,
-        value: m.id,
-      })),
-      default: models.find((m) => m.id === currentModel)?.id ?? models[0].id,
+    const modelChoices = models.map((m) => ({
+      name: `${m.name} ${chalk.dim(`(${m.id})`)}`,
+      value: m.id,
+    }));
+
+    const orchestrator = await select({
+      message: 'Select the model for orchestration (task routing):',
+      choices: modelChoices,
+      default:
+        models.find((m) => m.id === currentModels.orchestrator)?.id ??
+        models[0].id,
     });
 
-    return chosen;
+    const task = await select({
+      message: 'Select the model for running tasks:',
+      choices: modelChoices,
+      default:
+        models.find((m) => m.id === currentModels.task)?.id ?? orchestrator,
+    });
+
+    return { orchestrator, task };
   } catch {
     modelSpinner.fail('Failed to connect to Copilot CLI.');
     console.log(
       chalk.yellow('  Make sure you are authenticated: copilot /login'),
     );
-    console.log(chalk.yellow(`  Keeping current model: ${currentModel}\n`));
+    console.log(chalk.yellow('  Keeping current models.\n'));
     await stopRuntime().catch(() => {});
-    return currentModel;
+    return currentModels;
   }
 }
 

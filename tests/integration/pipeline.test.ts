@@ -205,7 +205,7 @@ describe('integration: workspace config round-trip', () => {
       web: {
         setupEnabled: false,
       },
-      model: 'claude-sonnet-4.5',
+      models: { orchestrator: 'claude-sonnet-4.5', task: 'claude-sonnet-4.5' },
       workspacePath: tmpDir,
     };
 
@@ -216,7 +216,7 @@ describe('integration: workspace config round-trip', () => {
     expect(loaded.channels[0].allowList).toEqual(['123']);
     expect(loaded.channels[1].httpApiKey).toBe('key123');
     expect(loaded.repos).toEqual(['owner/repo1', 'owner/repo2']);
-    expect(loaded.model).toBe('claude-sonnet-4.5');
+    expect(loaded.models).toEqual({ orchestrator: 'claude-sonnet-4.5', task: 'claude-sonnet-4.5' });
     expect(loaded.maxConcurrency).toBe(4);
     expect(loaded.workspacePath).toBe(tmpDir);
   });

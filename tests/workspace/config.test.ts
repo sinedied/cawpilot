@@ -45,7 +45,7 @@ describe('workspace/config', () => {
     expect(config.repos).toEqual([]);
     expect(config.skills).toEqual([]);
     expect(config.maxConcurrency).toBe(5);
-    expect(config.model).toBe('gpt-4.1');
+    expect(config.models).toEqual({ orchestrator: 'gpt-4.1', task: 'gpt-4.1' });
     expect(config.workspacePath).toBe(tmpDir);
   });
 
@@ -60,7 +60,7 @@ describe('workspace/config', () => {
       skills: ['local-tunnel'],
       maxConcurrency: 5,
       persistence: { enabled: true, repo: 'user/my-cawpilot' },
-      model: 'claude-sonnet-4.5',
+      models: { orchestrator: 'claude-sonnet-4.5', task: 'claude-sonnet-4.5' },
       workspacePath: tmpDir,
     };
 
@@ -72,7 +72,7 @@ describe('workspace/config', () => {
     expect(loaded.channels[0].telegramToken).toBe('tok');
     expect(loaded.repos).toEqual(['user/repo']);
     expect(loaded.skills).toEqual(['local-tunnel']);
-    expect(loaded.model).toBe('claude-sonnet-4.5');
+    expect(loaded.models).toEqual({ orchestrator: 'claude-sonnet-4.5', task: 'claude-sonnet-4.5' });
     expect(loaded.maxConcurrency).toBe(5);
   });
 
@@ -83,7 +83,7 @@ describe('workspace/config', () => {
       skills: [],
       maxConcurrency: 5,
       persistence: { enabled: false, repo: '' },
-      model: 'gpt-4.1',
+      models: { orchestrator: 'gpt-4.1', task: 'gpt-4.1' },
       workspacePath: tmpDir,
     };
 

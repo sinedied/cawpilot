@@ -50,7 +50,11 @@ export function authenticateGitHub(token: string): string | undefined {
 export type EnvStepStatus = {
   ghAuth: { available: boolean; user?: string };
   telegramToken: { available: boolean };
-  model: { available: boolean; value?: string };
+  models: {
+    available: boolean;
+    orchestrator?: string;
+    task?: string;
+  };
 };
 
 /**
@@ -61,7 +65,7 @@ export function resolveEnvStatus(): EnvStepStatus {
   const status: EnvStepStatus = {
     ghAuth: { available: false },
     telegramToken: { available: false },
-    model: { available: false },
+    models: { available: false },
   };
 
   if (process.env.GH_TOKEN) {
@@ -80,8 +84,17 @@ export function resolveEnvStatus(): EnvStepStatus {
     status.telegramToken = { available: true };
   }
 
-  if (process.env.COPILOT_MODEL) {
-    status.model = { available: true, value: process.env.COPILOT_MODEL };
+  if (
+    process.env.COPILOT_MODEL ??
+    process.env.COPILOT_ORCHESTRATOR_MODEL ??
+    process.env.COPILOT_TASK_MODEL
+  ) {
+    const fallback = process.env.COPILOT_MODEL;
+    status.models = {
+      available: true,
+      orchestrator: process.env.COPILOT_ORCHESTRATOR_MODEL ?? fallback,
+      task: process.env.COPILOT_TASK_MODEL ?? fallback,
+    };
   }
 
   return status;

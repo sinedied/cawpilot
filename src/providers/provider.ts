@@ -68,6 +68,7 @@ export type AgentSession = {
  */
 export type SessionOptions = {
   config: CawpilotConfig;
+  model: string;
   db: Database.Database;
   channels: Map<string, Channel>;
   taskId: string;

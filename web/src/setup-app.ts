@@ -201,7 +201,11 @@ export class SetupApp extends LitElement {
         env: {
           ghAuth: { available: boolean };
           telegramToken: { available: boolean };
-          model: { available: boolean; value?: string };
+          models: {
+            available: boolean;
+            orchestrator?: string;
+            task?: string;
+          };
         };
         persistence?: {
           enabled: boolean;
@@ -247,7 +251,7 @@ export class SetupApp extends LitElement {
   handleConfigRestored(e: Event) {
     const detail = (e as CustomEvent).detail as {
       channels: unknown[];
-      model: string;
+      models: { orchestrator: string; task: string };
       skills: string[];
       persistence: {
         enabled: boolean;
@@ -256,7 +260,7 @@ export class SetupApp extends LitElement {
       };
     };
     this._pendingChannels = detail.channels;
-    this._pendingModel = detail.model;
+    this._pendingModels = detail.models;
     this._pendingSkills = detail.skills;
     this._pendingPersistence = detail.persistence;
   }
@@ -291,7 +295,13 @@ export class SetupApp extends LitElement {
         const el = this.shadowRoot?.querySelector('model-step') as
           | ModelStep
           | undefined;
-        if (el) this._pendingModel = el.model;
+        if (el) {
+          this._pendingModels = {
+            orchestrator: el.orchestratorModel,
+            task: el.taskModel,
+          };
+        }
+
         break;
       }
 
@@ -318,7 +328,11 @@ export class SetupApp extends LitElement {
     }
   }
 
-  private _pendingModel = '';
+  private _pendingModels: { orchestrator: string; task: string } = {
+    orchestrator: '',
+    task: '',
+  };
+
   private _pendingSkills: string[] = [];
   private _pendingChannels: unknown[] = [];
   private _pendingPersistence: {
@@ -450,7 +464,7 @@ export class SetupApp extends LitElement {
         ></persistence-step>`;
       case 'complete': {
         return html`<complete-step
-          .model=${this._pendingModel}
+          .models=${this._pendingModels}
           .skills=${this._pendingSkills}
           .channels=${this._pendingChannels}
           .persistence=${this._pendingPersistence}

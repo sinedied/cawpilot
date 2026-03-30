@@ -35,7 +35,10 @@ export type CawpilotConfig = {
   };
   web: WebConfig;
   provider?: ProviderConfig;
-  model: string;
+  models: {
+    orchestrator: string;
+    task: string;
+  };
   workspacePath: string;
 };
 
@@ -54,7 +57,10 @@ const DEFAULT_CONFIG: CawpilotConfig = {
   web: {
     setupEnabled: true,
   },
-  model: 'gpt-4.1',
+  models: {
+    orchestrator: 'gpt-4.1',
+    task: 'gpt-4.1',
+  },
   workspacePath: '',
 };
 

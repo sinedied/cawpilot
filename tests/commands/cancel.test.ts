@@ -72,7 +72,7 @@ describe('commands/cancel', () => {
         cleanupIntervalDays: 7,
         persistence: { enabled: false, repo: '', backupIntervalDays: 1 },
         web: { setupEnabled: false },
-        model: 'gpt-4.1',
+        models: { orchestrator: 'gpt-4.1', task: 'gpt-4.1' },
         workspacePath: '/tmp/workspace',
       },
       db,

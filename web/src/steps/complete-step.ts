@@ -43,7 +43,11 @@ export class CompleteStep extends LitElement {
   @state() done = false;
   @state() error = '';
 
-  model = '';
+  models: { orchestrator: string; task: string } = {
+    orchestrator: '',
+    task: '',
+  };
+
   skills: string[] = [];
   channels: unknown[] = [];
   persistence: { enabled: boolean; repo: string; backupIntervalDays: number } =
@@ -67,8 +71,12 @@ export class CompleteStep extends LitElement {
 
       <div class="info-box">
         <div class="summary-item">
-          <span class="summary-label">Model</span>
-          <span>${this.model || 'gpt-4.1'}</span>
+          <span class="summary-label">Orchestrator Model</span>
+          <span>${this.models.orchestrator || 'gpt-4.1'}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Task Model</span>
+          <span>${this.models.task || 'gpt-4.1'}</span>
         </div>
         <div class="summary-item">
           <span class="summary-label">Skills</span>
@@ -115,7 +123,7 @@ export class CompleteStep extends LitElement {
       await api('/complete', {
         method: 'POST',
         body: JSON.stringify({
-          model: this.model,
+          models: this.models,
           skills: this.skills,
           channels: this.channels,
           persistence: this.persistence,

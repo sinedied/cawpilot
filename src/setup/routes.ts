@@ -186,7 +186,7 @@ export function createSetupRouter(
         message: result.message,
         config: {
           channels: result.config.channels,
-          model: result.config.model,
+          models: result.config.models,
           skills: result.config.skills,
           persistence: result.config.persistence,
         },
@@ -199,7 +199,10 @@ export function createSetupRouter(
   // ── Complete Setup ────────────────────────────────────
   router.post('/complete', (req: Request, res: Response) => {
     const body = req.body as {
-      model?: string;
+      models?: {
+        orchestrator: string;
+        task: string;
+      };
       skills?: string[];
       channels?: ChannelConfig[];
       persistence?: {
@@ -212,8 +215,8 @@ export function createSetupRouter(
     const config = loadConfig(workspacePath);
 
     // Apply final values
-    if (body.model) {
-      config.model = body.model;
+    if (body.models) {
+      config.models = body.models;
     }
 
     if (body.skills) {

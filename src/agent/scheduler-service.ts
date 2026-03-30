@@ -167,6 +167,7 @@ export class SchedulerService {
 
       const session = await createTaskSession({
         config: this.config,
+        model: this.config.models.task,
         db: this.db,
         channels: this.channels,
         taskId: task.id,

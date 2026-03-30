@@ -247,7 +247,7 @@ export class CopilotProvider implements AgentProvider {
     const { workspacePath } = options.config;
 
     const session = await this.client.createSession({
-      model: options.config.model,
+      model: options.model,
       tools: sdkTools,
       skillDirectories: [skillsDir],
       streaming: true,
