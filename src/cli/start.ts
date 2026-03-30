@@ -38,19 +38,28 @@ export async function runStart(
 ): Promise<void> {
   const { debug } = options ?? { debug: false };
 
-  // Check if web setup mode is needed
-  const setupKey = process.env.SETUP_KEY;
-  if (setupKey) {
-    const hasConfig = configExists(workspacePath);
-    const config = loadConfig(workspacePath);
-    const needsSetup = !hasConfig || config.web?.setupEnabled;
+  // Check if setup is needed
+  const setupKey = process.env.CAWPILOT_WEBSETUP_KEY;
+  const hasConfig = configExists(workspacePath);
 
-    if (needsSetup) {
+  if (!hasConfig || (setupKey && loadConfig(workspacePath).web?.setupEnabled)) {
+    console.log(
+      chalk.yellow(
+        'No workspace configuration found. Running setup...\n',
+      ),
+    );
+
+    if (setupKey) {
       logger.info('Entering web setup mode');
       const { runSetupServer } = await import('../setup/server.js');
       await runSetupServer(workspacePath);
-      return;
+    } else {
+      const { runSetup } = await import('./setup.js');
+      await runSetup(workspacePath);
+      await runStart(workspacePath, options);
     }
+
+    return;
   }
 
   const config = loadConfig(workspacePath);

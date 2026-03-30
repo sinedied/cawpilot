@@ -126,7 +126,7 @@ module containerApp 'br/public:avm/ptn/azd/container-app-upsert:0.1.1' = {
       ...pushIfNotEmpty('GH_TOKEN', ghToken)
       ...pushIfNotEmpty('TELEGRAM_TOKEN', telegramToken)
       {
-        name: 'SETUP_KEY'
+        name: 'CAWPILOT_WEBSETUP_KEY'
         value: setupKey
       }
     ]
