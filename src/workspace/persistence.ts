@@ -44,7 +44,7 @@ export function ensurePersistenceRepo(repo: string): void {
   }
 }
 
-function ensureGitRepo(workspacePath: string, repo: string): void {
+export function ensureGitRepo(workspacePath: string, repo: string): void {
   const safeRepo = validateRepoName(repo);
 
   if (!existsSync(join(workspacePath, '.git'))) {
@@ -59,6 +59,20 @@ function ensureGitRepo(workspacePath: string, repo: string): void {
     );
     logger.debug('Initialized git repo in workspace');
   }
+}
+
+/**
+ * Clone a persistence repo into the workspace directory.
+ * The workspace must be empty (or contain only the .cawpilot config dir).
+ */
+export function cloneIntoWorkspace(workspacePath: string, repo: string): void {
+  const safeRepo = validateRepoName(repo);
+
+  runCommand('git', ['clone', `https://github.com/${safeRepo}.git`, '.'], {
+    cwd: workspacePath,
+    stdio: 'pipe',
+  });
+  logger.debug(`Cloned ${safeRepo} into workspace`);
 }
 
 function hasCommits(workspacePath: string): boolean {

@@ -243,6 +243,24 @@ export class SetupApp extends LitElement {
     }
   }
 
+  // Called by persistence-step when backup is restored
+  handleConfigRestored(e: Event) {
+    const detail = (e as CustomEvent).detail as {
+      channels: unknown[];
+      model: string;
+      skills: string[];
+      persistence: {
+        enabled: boolean;
+        repo: string;
+        backupIntervalDays: number;
+      };
+    };
+    this._pendingChannels = detail.channels;
+    this._pendingModel = detail.model;
+    this._pendingSkills = detail.skills;
+    this._pendingPersistence = detail.persistence;
+  }
+
   private next() {
     const idx = this.currentIndex;
     if (idx < STEPS.length - 1) {
@@ -291,7 +309,6 @@ export class SetupApp extends LitElement {
           | undefined;
         if (el) {
           this._pendingPersistence = el.persistence;
-          this._pendingRestore = el.restoreConfirmed === true;
         }
         break;
       }
@@ -309,7 +326,6 @@ export class SetupApp extends LitElement {
     repo: string;
     backupIntervalDays: number;
   } = { enabled: false, repo: '', backupIntervalDays: 1 };
-  private _pendingRestore = false;
 
   private get canProceed() {
     if (this.currentStep === 'auth') {
@@ -430,6 +446,7 @@ export class SetupApp extends LitElement {
         return html`<persistence-step
           .ghUser=${this.ghUser}
           .initialPersistence=${this._pendingPersistence}
+          @config-restored=${this.handleConfigRestored}
         ></persistence-step>`;
       case 'complete': {
         return html`<complete-step
@@ -437,7 +454,6 @@ export class SetupApp extends LitElement {
           .skills=${this._pendingSkills}
           .channels=${this._pendingChannels}
           .persistence=${this._pendingPersistence}
-          .restore=${this._pendingRestore}
         ></complete-step>`;
       }
     }

@@ -25,6 +25,7 @@ import {
   sanitizeChannels,
   buildChannelsFromEnv,
   repoExists,
+  restoreFromBackup,
   completeSetup,
 } from './steps.js';
 import { runCopilotLogin } from './copilot-auth.js';
@@ -170,6 +171,31 @@ export function createSetupRouter(
     }
   });
 
+  // ── Restore from Backup ───────────────────────────────
+  router.post('/restore-backup', (req: Request, res: Response) => {
+    const { repo } = req.body as { repo?: string };
+    if (!repo) {
+      res.status(400).json({ error: 'repo is required' });
+      return;
+    }
+
+    const result = restoreFromBackup(workspacePath, repo);
+    if (result.success && result.config) {
+      res.json({
+        success: true,
+        message: result.message,
+        config: {
+          channels: result.config.channels,
+          model: result.config.model,
+          skills: result.config.skills,
+          persistence: result.config.persistence,
+        },
+      });
+    } else {
+      res.json({ success: false, message: result.message });
+    }
+  });
+
   // ── Complete Setup ────────────────────────────────────
   router.post('/complete', (req: Request, res: Response) => {
     const body = req.body as {
@@ -181,7 +207,6 @@ export function createSetupRouter(
         repo: string;
         backupIntervalDays: number;
       };
-      restore?: boolean;
     };
 
     const config = loadConfig(workspacePath);
@@ -202,7 +227,6 @@ export function createSetupRouter(
     }
 
     completeSetup(workspacePath, config, {
-      restore: body.restore,
       disableWeb: true,
     });
 

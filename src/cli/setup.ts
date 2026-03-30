@@ -1,4 +1,5 @@
 import process from 'node:process';
+import { mkdirSync } from 'node:fs';
 import { execSync, spawnSync } from 'node:child_process';
 import { input, confirm, checkbox, select, password } from '@inquirer/prompts';
 import ora from 'ora';
@@ -8,7 +9,7 @@ import {
   type ChannelConfig,
   type CawpilotConfig,
 } from '../workspace/config.js';
-import { ensureWorkspace, getGitHubUser } from '../workspace/manager.js';
+import { getGitHubUser } from '../workspace/manager.js';
 import {
   startRuntime,
   stopRuntime,
@@ -19,10 +20,10 @@ import { isRunningInDocker } from '../utils/docker.js';
 import { loadEnvFile, saveEnvValue } from '../workspace/env.js';
 import { renderBanner, gradientText } from '../ui/banner.js';
 import {
-  ensureGitignore,
   listAvailableSkills,
   generateApiKey,
   repoExists,
+  restoreFromBackup,
   completeSetup,
 } from '../setup/steps.js';
 
@@ -32,8 +33,7 @@ export async function runSetup(workspacePath: string): Promise<void> {
     chalk.dim("  Let's get you set up — this'll only take a minute.\n"),
   );
 
-  ensureWorkspace(workspacePath);
-  ensureGitignore(workspacePath);
+  mkdirSync(workspacePath, { recursive: true });
   loadEnvFile(workspacePath);
   const config = loadConfig(workspacePath);
 
@@ -86,7 +86,6 @@ export async function runSetup(workspacePath: string): Promise<void> {
     default: true,
   });
 
-  let restore = false;
   if (enablePersistence) {
     const result = await promptPersistenceRepo(config, user);
     config.persistence = {
@@ -94,7 +93,23 @@ export async function runSetup(workspacePath: string): Promise<void> {
       repo: result.repo,
       backupIntervalDays: 1,
     };
-    restore = result.restore;
+
+    if (result.restore) {
+      const restoreSpinner = ora('Restoring from backup...').start();
+      const restoreResult = restoreFromBackup(workspacePath, result.repo);
+      if (restoreResult.success && restoreResult.config) {
+        restoreSpinner.succeed(restoreResult.message);
+        // Reload config from restored backup, keep persistence settings
+        Object.assign(config, restoreResult.config);
+        config.persistence = {
+          enabled: true,
+          repo: result.repo,
+          backupIntervalDays: 1,
+        };
+      } else {
+        restoreSpinner.warn(restoreResult.message);
+      }
+    }
   } else {
     config.persistence = { enabled: false, repo: '', backupIntervalDays: 1 };
   }
@@ -117,9 +132,7 @@ export async function runSetup(workspacePath: string): Promise<void> {
 
   // Finalize
   const setupSpinner = ora('Completing setup...').start();
-  const { persistenceResult } = completeSetup(workspacePath, config, {
-    restore,
-  });
+  const { persistenceResult } = completeSetup(workspacePath, config);
   if (persistenceResult) {
     if (persistenceResult.success) {
       setupSpinner.succeed(persistenceResult.message);

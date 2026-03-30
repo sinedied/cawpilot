@@ -48,7 +48,6 @@ export class CompleteStep extends LitElement {
   channels: unknown[] = [];
   persistence: { enabled: boolean; repo: string; backupIntervalDays: number } =
     { enabled: false, repo: '', backupIntervalDays: 1 };
-  restore = false;
 
   override render() {
     if (this.done) {
@@ -120,7 +119,6 @@ export class CompleteStep extends LitElement {
           skills: this.skills,
           channels: this.channels,
           persistence: this.persistence,
-          restore: this.restore,
         }),
       });
       this.done = true;

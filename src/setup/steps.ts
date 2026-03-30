@@ -12,14 +12,15 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   getSkillsPath,
+  loadConfig,
   saveConfig,
   type CawpilotConfig,
   type ChannelConfig,
 } from '../workspace/config.js';
-import { getGitHubUser } from '../workspace/manager.js';
+import { ensureWorkspace, getGitHubUser } from '../workspace/manager.js';
 import {
+  cloneIntoWorkspace,
   initializePersistence as _initializePersistence,
-  pullFromRepo as _pullFromRepo,
 } from '../workspace/persistence.js';
 import { logger } from '../utils/logger.js';
 
@@ -278,16 +279,41 @@ export {
   initializePersistence,
 } from '../workspace/persistence.js';
 
+// ── Restore from Backup ─────────────────────────────────────────────────────
+
+/**
+ * Restore workspace from an existing persistence repo.
+ * Initializes git, pulls the backup, and returns the reloaded config.
+ */
+export function restoreFromBackup(
+  workspacePath: string,
+  repo: string,
+): { success: boolean; config?: CawpilotConfig; message: string } {
+  try {
+    cloneIntoWorkspace(workspacePath, repo);
+    const restoredConfig = loadConfig(workspacePath);
+    logger.info('Restored from persistence repo');
+    return {
+      success: true,
+      config: restoredConfig,
+      message: 'Restored from backup.',
+    };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.warn(`Failed to restore from persistence repo: ${msg}`);
+    return { success: false, message: 'Could not restore — will start fresh.' };
+  }
+}
+
 // ── Complete Setup ──────────────────────────────────────────────────────────
 
 export type CompleteSetupOptions = {
-  restore?: boolean;
   disableWeb?: boolean;
 };
 
 /**
- * Shared setup completion: save config, copy skills/templates, handle
- * persistence (optional restore + initialization).
+ * Shared setup completion: save config, copy skills/templates, initialize
+ * persistence.
  *
  * Both CLI and web setup call this as the single finalization path.
  */
@@ -302,21 +328,16 @@ export function completeSetup(
     config.web = { setupEnabled: false };
   }
 
+  // Ensure workspace structure exists (safe after restore — just creates missing dirs)
+  ensureWorkspace(workspacePath);
+  ensureGitignore(workspacePath);
+
   saveConfig(config);
   finalizeSetup(workspacePath, config.skills);
 
   let persistenceResult: { success: boolean; message: string } | undefined;
 
   if (config.persistence.enabled && config.persistence.repo) {
-    if (options?.restore) {
-      try {
-        _pullFromRepo(config);
-        logger.info('Restored from persistence repo');
-      } catch {
-        logger.warn('Failed to restore from persistence repo');
-      }
-    }
-
     persistenceResult = _initializePersistence(config);
   }
 

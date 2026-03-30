@@ -1,10 +1,9 @@
 import process from 'node:process';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import chalk from 'chalk';
-import { ensureWorkspace } from '../workspace/manager.js';
 import { loadEnvFile } from '../workspace/env.js';
 import { logger } from '../utils/logger.js';
 import { registerSignalHandlers } from '../utils/signals.js';
@@ -19,7 +18,7 @@ export async function runSetupServer(workspacePath: string): Promise<void> {
     throw new Error('SETUP_KEY environment variable is required for web setup');
   }
 
-  ensureWorkspace(workspacePath);
+  mkdirSync(workspacePath, { recursive: true });
   loadEnvFile(workspacePath);
 
   const app = express();

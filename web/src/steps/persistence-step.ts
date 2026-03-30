@@ -128,8 +128,42 @@ export class PersistenceStep extends LitElement {
     this.restoreStatus = 'idle';
   }
 
-  private handleRestore() {
+  private async handleRestore() {
+    this.restoreStatus = 'restoring';
     this.restoreConfirmed = true;
+    try {
+      const result = await api<{
+        success: boolean;
+        message: string;
+        config?: {
+          channels: unknown[];
+          model: string;
+          skills: string[];
+          persistence: {
+            enabled: boolean;
+            repo: string;
+            backupIntervalDays: number;
+          };
+        };
+      }>('/restore-backup', {
+        method: 'POST',
+        body: JSON.stringify({ repo: this.repo }),
+      });
+      if (result.success && result.config) {
+        this.restoreStatus = 'success';
+        this.dispatchEvent(
+          new CustomEvent('config-restored', {
+            detail: result.config,
+            bubbles: true,
+            composed: true,
+          }),
+        );
+      } else {
+        this.restoreStatus = 'error';
+      }
+    } catch {
+      this.restoreStatus = 'error';
+    }
   }
 
   private handleChangeRepo() {
@@ -225,8 +259,13 @@ export class PersistenceStep extends LitElement {
             ${this.restoreConfirmed === true
               ? html`
                   <div class="repo-exists-banner">
-                    Configuration will be restored from
-                    <strong>${this.repo}</strong> during setup completion.
+                    ${this.restoreStatus === 'restoring'
+                      ? html`<span class="spinner"></span> Restoring from
+                          <strong>${this.repo}</strong>...`
+                      : this.restoreStatus === 'success'
+                        ? html`✓ Configuration restored from
+                            <strong>${this.repo}</strong>.`
+                        : html`⚠ Could not restore — will start fresh.`}
                   </div>
                 `
               : ''}
