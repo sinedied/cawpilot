@@ -5,8 +5,8 @@ import ora from 'ora';
 import chalk from 'chalk';
 import {
   loadConfig,
-  saveConfig,
   type ChannelConfig,
+  type CawpilotConfig,
 } from '../workspace/config.js';
 import { ensureWorkspace, getGitHubUser } from '../workspace/manager.js';
 import {
@@ -18,14 +18,12 @@ import {
 import { isRunningInDocker } from '../utils/docker.js';
 import { loadEnvFile, saveEnvValue } from '../workspace/env.js';
 import { renderBanner, gradientText } from '../ui/banner.js';
-import { initializePersistence } from '../workspace/persistence.js';
 import {
   ensureGitignore,
-  ensureTemplate,
   listAvailableSkills,
-  copyEnabledSkills,
   generateApiKey,
-  finalizeSetup,
+  repoExists,
+  completeSetup,
 } from '../setup/steps.js';
 
 export async function runSetup(workspacePath: string): Promise<void> {
@@ -39,14 +37,8 @@ export async function runSetup(workspacePath: string): Promise<void> {
   loadEnvFile(workspacePath);
   const config = loadConfig(workspacePath);
 
-  // Step 1: Channels
-  console.log(chalk.bold('Where should your bot listen?'));
-
-  const channels = await setupChannels(config.channels);
-  config.channels = channels;
-
-  // Step 2: GitHub auth
-  console.log(chalk.bold('\nConnecting to GitHub'));
+  // Step 1: GitHub auth
+  console.log(chalk.bold('Connecting to GitHub'));
   let spinner = ora('Checking GitHub CLI...').start();
 
   try {
@@ -87,51 +79,56 @@ export async function runSetup(workspacePath: string): Promise<void> {
 
   spinner.succeed(`Authenticated as ${chalk.green(user)}`);
 
-  // Step 3: Persistence
+  // Step 2: Persistence
   console.log(chalk.bold('\nBack up your config?'));
   const enablePersistence = await confirm({
     message: 'Persist configuration in a private GitHub repo? (recommended)',
     default: true,
   });
 
+  let restore = false;
   if (enablePersistence) {
-    const repoName = await input({
-      message: 'Repository name:',
-      default: config.persistence.repo || `${user}/my-cawpilot`,
-    });
+    const result = await promptPersistenceRepo(config, user);
     config.persistence = {
       enabled: true,
-      repo: repoName,
+      repo: result.repo,
       backupIntervalDays: 1,
     };
-
-    // Save config early so it's on disk for the initial commit
-    saveConfig(config);
-
-    const persistSpinner = ora('Setting up persistence repo...').start();
-    const result = initializePersistence(config);
-    if (result.success) {
-      persistSpinner.succeed(result.message);
-    } else {
-      persistSpinner.warn(result.message);
-    }
+    restore = result.restore;
   } else {
     config.persistence = { enabled: false, repo: '', backupIntervalDays: 1 };
   }
 
-  // Step 4: Skills
-  console.log(chalk.bold('\nPick your skills'));
-  const skills = await setupSkills(workspacePath);
-  config.skills = skills;
+  // Step 3: Channels
+  console.log(chalk.bold('\nWhere should your bot listen?'));
 
-  // Step 5: Copilot CLI & Model
+  const channels = await setupChannels(config.channels);
+  config.channels = channels;
+
+  // Step 4: Copilot CLI & Model
   console.log(chalk.bold('\nChoose your model'));
   const model = await setupCopilotAndModel(config.model);
   config.model = model;
 
-  // Save
-  saveConfig(config);
-  finalizeSetup(workspacePath, skills);
+  // Step 5: Skills
+  console.log(chalk.bold('\nPick your skills'));
+  const skills = await setupSkills(workspacePath);
+  config.skills = skills;
+
+  // Finalize
+  const setupSpinner = ora('Completing setup...').start();
+  const { persistenceResult } = completeSetup(workspacePath, config, {
+    restore,
+  });
+  if (persistenceResult) {
+    if (persistenceResult.success) {
+      setupSpinner.succeed(persistenceResult.message);
+    } else {
+      setupSpinner.warn(persistenceResult.message);
+    }
+  } else {
+    setupSpinner.succeed('Setup complete.');
+  }
 
   console.log(chalk.bold.green("\n  You're all set! 🎉\n"));
 
@@ -155,6 +152,44 @@ export async function runSetup(workspacePath: string): Promise<void> {
     console.log(
       chalk.dim('  Use /bootstrap once started to customize the agent.\n'),
     );
+  }
+}
+
+async function promptPersistenceRepo(
+  config: CawpilotConfig,
+  user: string,
+): Promise<{ repo: string; restore: boolean }> {
+  let repoName = '';
+
+  while (true) {
+    // eslint-disable-next-line no-await-in-loop
+    repoName = await input({
+      message: 'Repository name:',
+      default: repoName || config.persistence.repo || `${user}/my-cawpilot`,
+      validate: (value) =>
+        /^(?:[\w.\-]+)\/(?:[\w.\-]+)$/v.test(value.trim()) ||
+        'Use owner/repo format (e.g. user/my-cawpilot)',
+    });
+
+    const checkSpinner = ora('Checking repository...').start();
+    const exists = repoExists(repoName);
+    checkSpinner.stop();
+
+    if (!exists) {
+      return { repo: repoName, restore: false };
+    }
+
+    // eslint-disable-next-line no-await-in-loop
+    const restore = await confirm({
+      message: `Repository ${repoName} already exists. Restore from backup?`,
+      default: true,
+    });
+
+    if (restore) {
+      return { repo: repoName, restore: true };
+    }
+
+    // User declined restore — loop back to change repo name
   }
 }
 

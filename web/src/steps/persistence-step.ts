@@ -1,6 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state, property } from 'lit/decorators.js';
 import { sharedStyles } from '../lib/styles.js';
+import { api } from '../lib/api.js';
 
 @customElement('persistence-step')
 export class PersistenceStep extends LitElement {
@@ -22,6 +23,36 @@ export class PersistenceStep extends LitElement {
         width: 16px;
         height: 16px;
       }
+      .repo-exists-banner {
+        background: var(--cp-bg-elevated);
+        border: 1px solid var(--cp-border);
+        border-radius: var(--cp-radius-md);
+        padding: var(--cp-space-md);
+        margin-top: var(--cp-space-md);
+        font-size: var(--cp-text-sm);
+      }
+      .repo-exists-banner p {
+        margin-bottom: var(--cp-space-sm);
+      }
+      .repo-actions {
+        display: flex;
+        gap: var(--cp-space-sm);
+        margin-top: var(--cp-space-sm);
+      }
+      .repo-actions .btn {
+        font-size: var(--cp-text-sm);
+        padding: 6px 14px;
+      }
+      .restore-status {
+        margin-top: var(--cp-space-sm);
+        font-size: var(--cp-text-xs);
+      }
+      .restore-status.success {
+        color: var(--cp-success);
+      }
+      .restore-status.error {
+        color: var(--cp-error);
+      }
     `,
   ];
 
@@ -35,6 +66,10 @@ export class PersistenceStep extends LitElement {
   @state() enabled = true;
   @state() repo = '';
   @state() initialized = false;
+  @state() checking = false;
+  @state() repoExistsResult: boolean | null = null;
+  @state() restoreConfirmed: boolean | null = null;
+  @state() restoreStatus: 'idle' | 'restoring' | 'success' | 'error' = 'idle';
 
   override connectedCallback() {
     super.connectedCallback();
@@ -67,6 +102,49 @@ export class PersistenceStep extends LitElement {
     };
   }
 
+  private async checkRepo() {
+    if (!this.repo) return;
+    this.checking = true;
+    this.repoExistsResult = null;
+    this.restoreConfirmed = null;
+    this.restoreStatus = 'idle';
+    try {
+      const result = await api<{ exists: boolean }>('/check-repo', {
+        method: 'POST',
+        body: JSON.stringify({ repo: this.repo }),
+      });
+      this.repoExistsResult = result.exists;
+    } catch {
+      this.repoExistsResult = false;
+    } finally {
+      this.checking = false;
+    }
+  }
+
+  private handleRepoInput(e: Event) {
+    this.repo = (e.target as HTMLInputElement).value;
+    this.repoExistsResult = null;
+    this.restoreConfirmed = null;
+    this.restoreStatus = 'idle';
+  }
+
+  private handleRestore() {
+    this.restoreConfirmed = true;
+  }
+
+  private handleChangeRepo() {
+    this.restoreConfirmed = null;
+    this.repoExistsResult = null;
+    this.repo = '';
+    // Focus the input after render
+    this.updateComplete.then(() => {
+      const input = this.shadowRoot?.querySelector(
+        'input[type="text"]',
+      ) as HTMLInputElement;
+      input?.focus();
+    });
+  }
+
   override render() {
     return html`
       <div class="step-header">Backup</div>
@@ -81,6 +159,8 @@ export class PersistenceStep extends LitElement {
           .checked=${this.enabled}
           @change=${(e: Event) => {
             this.enabled = (e.target as HTMLInputElement).checked;
+            this.repoExistsResult = null;
+            this.restoreConfirmed = null;
           }}
         />
         <label for="persist-toggle">
@@ -92,21 +172,73 @@ export class PersistenceStep extends LitElement {
         ? html`
             <div class="field">
               <label>Repository name</label>
-              <input
-                type="text"
-                placeholder="user/my-cawpilot"
-                .value=${this.repo}
-                @input=${(e: Event) => {
-                  this.repo = (e.target as HTMLInputElement).value;
-                }}
-              />
+              <div style="display:flex;gap:var(--cp-space-sm)">
+                <input
+                  type="text"
+                  placeholder="user/my-cawpilot"
+                  .value=${this.repo}
+                  @input=${this.handleRepoInput}
+                  style="flex:1"
+                />
+                <button
+                  class="btn btn-primary"
+                  ?disabled=${!this.repo || this.checking}
+                  @click=${this.checkRepo}
+                  style="white-space:nowrap"
+                >
+                  ${this.checking ? 'Checking...' : 'Check'}
+                </button>
+              </div>
             </div>
-            <div
-              style="font-size:var(--cp-text-xs);color:var(--cp-text-secondary)"
-            >
-              A private repo will be created if it doesn't exist. Your config,
-              skills, and context files will be backed up daily.
-            </div>
+
+            ${this.repoExistsResult === false
+              ? html`
+                  <div
+                    style="font-size:var(--cp-text-xs);color:var(--cp-text-secondary);margin-top:var(--cp-space-sm)"
+                  >
+                    A private repo will be created. Your config, skills, and
+                    context files will be backed up daily.
+                  </div>
+                `
+              : ''}
+            ${this.repoExistsResult === true && this.restoreConfirmed === null
+              ? html`
+                  <div class="repo-exists-banner">
+                    <p>
+                      Repository <strong>${this.repo}</strong> already exists.
+                    </p>
+                    <p>Restore your configuration from this backup?</p>
+                    <div class="repo-actions">
+                      <button
+                        class="btn btn-primary"
+                        @click=${this.handleRestore}
+                      >
+                        Yes, restore
+                      </button>
+                      <button class="btn" @click=${this.handleChangeRepo}>
+                        No, change repo
+                      </button>
+                    </div>
+                  </div>
+                `
+              : ''}
+            ${this.restoreConfirmed === true
+              ? html`
+                  <div class="repo-exists-banner">
+                    Configuration will be restored from
+                    <strong>${this.repo}</strong> during setup completion.
+                  </div>
+                `
+              : ''}
+            ${this.repoExistsResult === null && !this.checking
+              ? html`
+                  <div
+                    style="font-size:var(--cp-text-xs);color:var(--cp-text-secondary);margin-top:var(--cp-space-sm)"
+                  >
+                    Click "Check" to verify repository availability.
+                  </div>
+                `
+              : ''}
           `
         : ''}
     `;

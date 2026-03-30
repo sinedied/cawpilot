@@ -22,11 +22,10 @@ import {
   authenticateGitHub,
   resolveEnvStatus,
   listAvailableSkills,
-  getSkillsRoot,
   sanitizeChannels,
   buildChannelsFromEnv,
-  copyEnabledSkills,
-  finalizeSetup,
+  repoExists,
+  completeSetup,
 } from './steps.js';
 import { runCopilotLogin } from './copilot-auth.js';
 
@@ -155,8 +154,24 @@ export function createSetupRouter(
     res.json({ ok: true });
   });
 
+  // ── Persistence Repo Check ────────────────────────────
+  router.post('/check-repo', (req: Request, res: Response) => {
+    const { repo } = req.body as { repo?: string };
+    if (!repo) {
+      res.status(400).json({ error: 'repo is required' });
+      return;
+    }
+
+    try {
+      const exists = repoExists(repo);
+      res.json({ exists });
+    } catch {
+      res.json({ exists: false });
+    }
+  });
+
   // ── Complete Setup ────────────────────────────────────
-  router.post('/complete', async (req: Request, res: Response) => {
+  router.post('/complete', (req: Request, res: Response) => {
     const body = req.body as {
       model?: string;
       skills?: string[];
@@ -166,10 +181,10 @@ export function createSetupRouter(
         repo: string;
         backupIntervalDays: number;
       };
+      restore?: boolean;
     };
 
     const config = loadConfig(workspacePath);
-    config.workspacePath = workspacePath;
 
     // Apply final values
     if (body.model) {
@@ -186,22 +201,10 @@ export function createSetupRouter(
       config.persistence = body.persistence;
     }
 
-    // Disable web setup
-    config.web = { setupEnabled: false };
-
-    saveConfig(config);
-    finalizeSetup(workspacePath, config.skills);
-
-    // Initialize persistence if enabled
-    if (config.persistence.enabled && config.persistence.repo) {
-      try {
-        const { initializePersistence } =
-          await import('../workspace/persistence.js');
-        initializePersistence(config);
-      } catch {
-        logger.warn('Persistence initialization failed during web setup');
-      }
-    }
+    completeSetup(workspacePath, config, {
+      restore: body.restore,
+      disableWeb: true,
+    });
 
     logger.info('Web setup completed');
     res.json({ ok: true });

@@ -10,8 +10,17 @@ import {
 } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getSkillsPath, type ChannelConfig } from '../workspace/config.js';
+import {
+  getSkillsPath,
+  saveConfig,
+  type CawpilotConfig,
+  type ChannelConfig,
+} from '../workspace/config.js';
 import { getGitHubUser } from '../workspace/manager.js';
+import {
+  initializePersistence as _initializePersistence,
+  pullFromRepo as _pullFromRepo,
+} from '../workspace/persistence.js';
 import { logger } from '../utils/logger.js';
 
 // Re-export for consumers that import from this module
@@ -258,4 +267,58 @@ export function finalizeSetup(workspacePath: string, skills: string[]): void {
   copyEnabledSkills(workspacePath, skills);
   ensureTemplate(workspacePath, 'SOUL.md');
   ensureTemplate(workspacePath, 'USER.md');
+}
+
+// ── Persistence Checks ──────────────────────────────────────────────────────
+
+// Re-export persistence helpers so both CLI and web import from this module
+export {
+  repoExists,
+  pullFromRepo,
+  initializePersistence,
+} from '../workspace/persistence.js';
+
+// ── Complete Setup ──────────────────────────────────────────────────────────
+
+export type CompleteSetupOptions = {
+  restore?: boolean;
+  disableWeb?: boolean;
+};
+
+/**
+ * Shared setup completion: save config, copy skills/templates, handle
+ * persistence (optional restore + initialization).
+ *
+ * Both CLI and web setup call this as the single finalization path.
+ */
+export function completeSetup(
+  workspacePath: string,
+  config: CawpilotConfig,
+  options?: CompleteSetupOptions,
+): { persistenceResult?: { success: boolean; message: string } } {
+  config.workspacePath = workspacePath;
+
+  if (options?.disableWeb) {
+    config.web = { setupEnabled: false };
+  }
+
+  saveConfig(config);
+  finalizeSetup(workspacePath, config.skills);
+
+  let persistenceResult: { success: boolean; message: string } | undefined;
+
+  if (config.persistence.enabled && config.persistence.repo) {
+    if (options?.restore) {
+      try {
+        _pullFromRepo(config);
+        logger.info('Restored from persistence repo');
+      } catch {
+        logger.warn('Failed to restore from persistence repo');
+      }
+    }
+
+    persistenceResult = _initializePersistence(config);
+  }
+
+  return { persistenceResult };
 }

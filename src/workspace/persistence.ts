@@ -6,6 +6,16 @@ import { commandSucceeds, runCommand } from './commands.js';
 import { validateRepoName } from './safety.js';
 
 /**
+ * Check whether a persistence repo already exists on GitHub.
+ */
+export function repoExists(repo: string): boolean {
+  const safeRepo = validateRepoName(repo);
+  return commandSucceeds('gh', ['repo', 'view', safeRepo, '--json', 'name'], {
+    stdio: 'pipe',
+  });
+}
+
+/**
  * Ensure the persistence repo exists (create if needed).
  */
 export function ensurePersistenceRepo(repo: string): void {

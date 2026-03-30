@@ -103,6 +103,7 @@ tests/                    # Vitest tests mirroring src/ structure
 - **Sandboxed workspace** — repos are cloned into the workspace directory. Never modify files outside the workspace.
 - **`index.ts` is reserved for barrel exports** — no logic in index.ts files (except the root entry point)
 - **Channel security** — Telegram messages from unlinked senders are silently dropped. HTTP requires API key. CLI is always trusted.
+- **Setup is a single source of truth** — CLI and web setup share the same step logic via `src/setup/steps.ts`. All business logic for setup steps (skills, channels, persistence, finalization) lives in `steps.ts`. CLI (`src/cli/setup.ts`) and web routes (`src/setup/routes.ts`) only handle UI/prompts and HTTP transport, never duplicate step logic.
 
 ## Development Workflow
 

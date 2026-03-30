@@ -10,20 +10,20 @@ import type { PersistenceStep } from './steps/persistence-step.js';
 
 const STEPS = [
   'auth',
+  'backup',
   'channels',
   'model',
   'skills',
-  'backup',
   'complete',
 ] as const;
 type StepName = (typeof STEPS)[number];
 
 const STEP_LABELS: Record<StepName, string> = {
   auth: 'Auth',
+  backup: 'Backup',
   channels: 'Channels',
   model: 'Model',
   skills: 'Skills',
-  backup: 'Backup',
   complete: 'Launch',
 };
 
@@ -289,7 +289,10 @@ export class SetupApp extends LitElement {
         const el = this.shadowRoot?.querySelector('persistence-step') as
           | PersistenceStep
           | undefined;
-        if (el) this._pendingPersistence = el.persistence;
+        if (el) {
+          this._pendingPersistence = el.persistence;
+          this._pendingRestore = el.restoreConfirmed === true;
+        }
         break;
       }
 
@@ -306,6 +309,7 @@ export class SetupApp extends LitElement {
     repo: string;
     backupIntervalDays: number;
   } = { enabled: false, repo: '', backupIntervalDays: 1 };
+  private _pendingRestore = false;
 
   private get canProceed() {
     if (this.currentStep === 'auth') {
@@ -433,6 +437,7 @@ export class SetupApp extends LitElement {
           .skills=${this._pendingSkills}
           .channels=${this._pendingChannels}
           .persistence=${this._pendingPersistence}
+          .restore=${this._pendingRestore}
         ></complete-step>`;
       }
     }
