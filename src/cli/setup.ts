@@ -157,20 +157,13 @@ export async function runSetup(workspacePath: string): Promise<void> {
   });
 
   if (doStart) {
-    console.log(
-      chalk.dim(
-        '\nTip: use /bootstrap once started to customize the agent interactively.\n',
-      ),
-    );
+    console.log('');
     const debug = false;
     const { runStart } = await import('./start.js');
     await runStart(workspacePath, { debug });
   } else {
     console.log('');
-    console.log('  Run ' + gradientText('cawpilot start') + ' to begin.');
-    console.log(
-      chalk.dim('  Use /bootstrap once started to customize the agent.\n'),
-    );
+    console.log('  Run ' + gradientText('cawpilot start') + ' to begin.\n');
   }
 }
 

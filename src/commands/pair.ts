@@ -96,6 +96,13 @@ export async function handlePairCommand(
     '✅ Channel linked! You can now send messages here.',
   );
 
+  if (!config.bootstrapCompleted) {
+    await channel.send(
+      sender,
+      '💡 Send /bootstrap to customize the agent interactively.',
+    );
+  }
+
   const sourceChannel = channels.get(pair.sourceChannel);
   if (sourceChannel) {
     await sourceChannel.send(

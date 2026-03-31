@@ -25,6 +25,7 @@ type AppProps = {
   db: Database.Database;
   startTime: Date;
   onInput: (text: string) => void;
+  bootstrapCompleted: boolean;
 };
 
 function useTerminalSize() {
@@ -62,14 +63,16 @@ function formatUptime(ms: number): string {
   return `${seconds}s`;
 }
 
-export function App({ db, startTime, onInput }: AppProps) {
+export function App({ db, startTime, onInput, bootstrapCompleted }: AppProps) {
   const { columns, rows } = useTerminalSize();
   const [notification, setNotification] = useState('');
   const [scrollOffset, setScrollOffset] = useState(0);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       sender: 'bot',
-      content: 'Ready! Type a message or /help for commands.',
+      content: bootstrapCompleted
+        ? 'Ready! Type a message or /help for commands.'
+        : 'Ready! Send /bootstrap to customize the agent.',
     },
   ]);
   const [stats, setStats] = useState({

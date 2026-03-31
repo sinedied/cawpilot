@@ -44,9 +44,7 @@ export async function runStart(
 
   if (!hasConfig || (setupKey && loadConfig(workspacePath).web?.setupEnabled)) {
     console.log(
-      chalk.yellow(
-        'No workspace configuration found. Running setup...\n',
-      ),
+      chalk.yellow('No workspace configuration found. Running setup...\n'),
     );
 
     if (setupKey) {
@@ -235,6 +233,7 @@ export async function runStart(
         db,
         startTime,
         onInput: handleInput,
+        bootstrapCompleted: config.bootstrapCompleted,
       }),
       {
         exitOnCtrlC: true,

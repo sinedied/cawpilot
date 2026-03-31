@@ -28,6 +28,7 @@ export type CawpilotConfig = {
   maxConcurrency: number;
   contextMessagesCount: number;
   cleanupIntervalDays: number;
+  bootstrapCompleted: boolean;
   persistence: {
     enabled: boolean;
     repo: string;
@@ -49,6 +50,7 @@ const DEFAULT_CONFIG: CawpilotConfig = {
   maxConcurrency: 5,
   contextMessagesCount: 10,
   cleanupIntervalDays: 7,
+  bootstrapCompleted: false,
   persistence: {
     enabled: false,
     repo: '',

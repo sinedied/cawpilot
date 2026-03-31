@@ -4,7 +4,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type Database from 'better-sqlite3';
 import chalk from 'chalk';
-import { type CawpilotConfig } from '../workspace/config.js';
+import { type CawpilotConfig, saveConfig } from '../workspace/config.js';
 import type { Channel } from '../channels/types.js';
 import { createTask } from '../db/tasks.js';
 import { createMessage, markMessagesProcessing } from '../db/messages.js';
@@ -51,6 +51,9 @@ export async function runBootstrap(
   markMessagesProcessing(db, [msg.id], task.id);
 
   await runTask({ task, config, db, channels });
+
+  config.bootstrapCompleted = true;
+  saveConfig(config);
 
   setNotification(chalk.green('✅ Bootstrap complete'));
   logger.info('Bootstrap completed');
