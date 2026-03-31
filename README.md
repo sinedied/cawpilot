@@ -94,6 +94,8 @@ docker run -it --rm \
 ```
 </details>
 
+<!--
+
 ### Option 3: Azure (Cloud)
 
 **Prerequisites:** [Docker](https://docs.docker.com/get-docker/), [Azure Developer CLI](https://aka.ms/azd) (`azd`), and an Azure subscription.
@@ -116,6 +118,8 @@ azd env set TELEGRAM_TOKEN 123:ABC...
 azd up
 ```
 </details>
+
+-->
 
 ## Usage
 
