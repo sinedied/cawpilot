@@ -4,7 +4,7 @@
 
 # cawpilot
 
-**Your autonomous assistant, powered by GitHub Copilot SDK**
+**Always-on autonomous agent, powered by GitHub Copilot SDK.**
 
 [![Node.js](https://img.shields.io/badge/Node.js-24%2B-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -17,67 +17,101 @@
 
 ---
 
-cawpilot is an always-on agent assistant that lives in your terminal and talks to you through Telegram, HTTP webhooks, or the CLI. It manages code, branches, and everyday developer workflows through natural conversation — backed by GitHub Copilot's agentic runtime.
+cawpilot is a personal agent assistant that runs in the background, takes your requests through natural conversation, and gets things done autonomously. It manages code, branches, pull requests, and any workflow you throw at it — as long as you bring the right [skills](https://agentskills.io).
 
-cawpilot operates in a dedicated sandboxed workspace, cloning your connected repositories and working exclusively in safe `cp-*` branches. It never touches your main branches directly.
+It operates in a dedicated sandboxed workspace, cloning your connected repositories and working exclusively in branches (unless you say otherwise).
+
+> [!IMPORTANT]
+> cawpilot is built on the GitHub Copilot SDK which is currently in **Technical Preview**. Consider it an experimental project at this stage.
 
 ## Features
 
-- 🤖 **Copilot-powered agent runtime** — leverages the full Copilot SDK with planning, tool invocation, and code editing
-- 💬 **Multi-channel** — Telegram, HTTP REST API, and CLI with a unified interface
-- 🔀 **Parallel task processing** — groups related messages into tasks, processes them concurrently (default: 5)
+- 🤖 **Copilot-powered agent** — full Copilot SDK with planning, tool invocation, and code editing
+- 💬 **Multi-channel** — Telegram, HTTP API, and CLI with a unified interface (more to come)
+- 🔀 **Parallel task processing** — groups related messages into tasks, runs them concurrently
 - 🔒 **Branch safety** — only works in `cp-*` branches to protect your main codebase
-- 🧩 **Modular skills** — extend capabilities with pluggable skills (following the Copilot SDK skill format)
-- ⏰ **Scheduled tasks** — configure recurring tasks like daily standups, weekly code cleanups, and more
-- 🔗 **GitHub-native** — creates pull requests, manages repos, and optionally persists config in a private repo
-- 🌐 **Tunnel support** — expose local ports publicly for demos via the built-in public tunnel skill
+- 🧩 **Extensible skills** — plug in any capability via standard `SKILL.md` files
+- ⏰ **Scheduled tasks** — recurring tasks like daily standups, weekly code cleanups, and more
+- 🔗 **GitHub-native** — creates PRs, manages repos, persists config in a private repo
+- 🔑 **BYOK** — bring your own API key (OpenAI, Azure, Ollama etc.) instead of a Copilot subscription
 
 ## Getting Started
 
-### Prerequisites
+Pick the installation method that suits you best.
 
-- [Node.js 24+](https://nodejs.org/)
-- [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli) installed and authenticated
-- [GitHub CLI](https://cli.github.com/) (`gh`) installed and authenticated
-- A [GitHub Copilot subscription](https://github.com/features/copilot#pricing) (free tier available, or use BYOK mode)
+### Option 1: Local Install
 
-### Installation
+**Prerequisites:** [Node.js 24+](https://nodejs.org/), [GitHub CLI](https://cli.github.com/) (`gh`), [Copilot CLI](https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli), and a [GitHub Copilot subscription](https://github.com/features/copilot#pricing) (free tier works).
 
 ```bash
 npm install -g cawpilot
 ```
 
-Or clone and run locally:
-
-```bash
-git clone https://github.com/<your-user>/cawpilot.git
-cd cawpilot
-npm install
-npm run build
-```
-
-### Setup
-
-Run the interactive setup wizard:
+Then run the interactive setup and start the agent:
 
 ```bash
 cawpilot setup
-```
-
-This walks you through:
-
-1. **Channel selection** — choose Telegram, HTTP API, or both (CLI is always available)
-2. **GitHub authentication** — verify `gh` auth
-3. **Persistence** — optionally store config in a private GitHub repo (default: `<user>/my-cawpilot`)
-4. **Skills** — pick which skills to enable from the available set
-
-### Start
-
-```bash
 cawpilot start
 ```
 
-The bot starts and displays a minimal dashboard with uptime, active tasks, recent activity, and message count.
+### Option 2: Docker
+
+**Prerequisites:** [Docker](https://docs.docker.com/get-docker/)
+
+Everything is bundled inside the image — no Node.js, `gh`, or Copilot CLI install needed on your machine.
+
+```bash
+# Build the image
+docker build -t cawpilot .
+
+# Run interactive setup (workspace is persisted via bind mount)
+docker run -it --rm -v ./workspace:/workspace cawpilot setup
+
+# Start the bot
+docker run -it --rm \
+  -v ./workspace:/workspace \
+  -p 2243:2243 \
+  cawpilot start
+```
+
+> [!TIP]
+> The workspace bind mount persists your configuration, database, and cloned repositories across container restarts.
+
+<details>
+<summary>GitHub authentication in Docker</summary>
+
+Since `gh auth login` is interactive, pass a token via environment variable instead:
+
+```bash
+docker run -it --rm \
+  -v ./workspace:/workspace \
+  -e GH_TOKEN=ghp_your_token_here \
+  cawpilot start
+```
+</details>
+
+### Option 3: Azure (Cloud)
+
+**Prerequisites:** [Docker](https://docs.docker.com/get-docker/), [Azure Developer CLI](https://aka.ms/azd) (`azd`), and an Azure subscription.
+
+Deploy to Azure Container Apps with a single command:
+
+```bash
+cd cloud/azure
+azd up
+```
+
+After deployment, `azd` outputs a **setup URL** — open it in your browser to complete the setup wizard (GitHub auth, channels, model, skills). The container restarts automatically into normal mode once setup is done.
+
+<details>
+<summary>Optional: pre-configure secrets before deployment</summary>
+
+```bash
+azd env set GH_TOKEN ghp_...
+azd env set TELEGRAM_TOKEN 123:ABC...
+azd up
+```
+</details>
 
 ## Usage
 
@@ -86,175 +120,103 @@ The bot starts and displays a minimal dashboard with uptime, active tasks, recen
 | Command | Description |
 |---------|-------------|
 | `cawpilot setup` | Interactive onboarding and configuration |
-| `cawpilot start` | Start the bot server with live dashboard |
-| `cawpilot doctor` | Run diagnostics to verify configuration and connectivity |
-| `cawpilot send <msg>` | Send a message to the bot from the CLI channel |
+| `cawpilot start` | Start the agent with live dashboard |
+| `cawpilot doctor` | Run diagnostics (auth, config, connectivity) |
+| `cawpilot send <msg>` | Send a message from the CLI channel |
 
 ### Talking to cawpilot
 
-Once started, send messages through any connected channel:
+Send messages through any connected channel:
 
 ```
-You: Create a new utility function to format dates in the api-server repo
-cawpilot: I'll work on that. Creating branch cp-add-date-formatter...
-         Done! I've created a PR with the changes: https://github.com/...
+You: Create a utility function to format dates in the api-server repo
+Bot: On it. Creating branch cp-add-date-formatter…
+     Done — PR ready: https://github.com/…
 ```
-
-cawpilot will ask follow-up questions if it needs clarification.
 
 ### Telegram Setup
 
 During `cawpilot setup`, if you select Telegram:
-1. You'll need a [Telegram Bot Token](https://core.telegram.org/bots#botfather) from BotFather
-2. A pairing code is generated — send it to your bot in Telegram to link your account
+1. Create a bot via [BotFather](https://core.telegram.org/bots#botfather) and enter the token
+2. A pairing code is generated — send it to your bot to link your account
 
 ## Architecture
 
-```
-┌──────────────────────────────────────────────────────────┐
-│                      cawpilot Server                     │
-│                                                          │
-│  ┌─────────┐  ┌─────────┐  ┌─────────┐                  │
-│  │Telegram │  │HTTP API │  │  CLI    │   Channels        │
-│  └────┬────┘  └────┬────┘  └────┬────┘                   │
-│       └─────────────┼───────────┘                        │
-│                     ▼                                    │
-│              ┌──────────────┐                             │
-│              │   SQLite DB  │  Message & task storage     │
-│              └──────┬───────┘                             │
-│                     ▼                                    │
-│           ┌──────────────────┐                            │
-│           │   Orchestrator   │  Triage & task creation    │
-│           └────────┬─────────┘                            │
-│          ┌─────────┼─────────┐                           │
-│          ▼         ▼         ▼                           │
-│    ┌──────────┐┌──────────┐┌──────────┐                  │
-│    │ Task     ││ Task     ││ Task     │  Copilot SDK     │
-│    │ Session  ││ Session  ││ Session  │  sessions        │
-│    └──────────┘└──────────┘└──────────┘  (default: 5)   │
-│                                                          │
-│  ┌─────────────────────────────────────────────────────┐ │
-│  │              Sandboxed Workspace                    │ │
-│  │  repos/  .cawpilot/                                 │ │
-│  └─────────────────────────────────────────────────────┘ │
-└──────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    TG[Telegram] --> MQ
+    HTTP[HTTP API] --> MQ
+    CLI[CLI] --> MQ
+
+    MQ[(SQLite<br/>Messages & Tasks)] --> ORCH
+
+    subgraph Agent
+        ORCH[Orchestrator<br/><i>triage & task creation</i>]
+        ORCH --> T1[Task Session]
+        ORCH --> T2[Task Session]
+        ORCH --> T3[Task Session]
+    end
+
+    subgraph Copilot SDK
+        T1 --> SDK1[Tools + Skills]
+        T2 --> SDK2[Tools + Skills]
+        T3 --> SDK3[Tools + Skills]
+    end
+
+    SDK1 --> WS
+    SDK2 --> WS
+    SDK3 --> WS
+
+    subgraph Workspace
+        WS[Sandboxed repos<br/><code>cp-*</code> branches only]
+    end
+
+    T1 -.-> MQ
+    T2 -.-> MQ
+    T3 -.-> MQ
 ```
 
-**Core flow:**
-1. Messages arrive from channels → stored in SQLite
-2. Orchestrator pulls unprocessed messages, groups them into tasks via the LLM
-3. Each task gets its own Copilot SDK session with relevant context and skills
-4. Sessions process tasks in parallel (default: 5 concurrent), report results back through channels
-5. Task status is tracked in SQLite, and completed tasks are archived to `.cawpilot/archive/`
+**How it works:**
+
+1. Messages arrive from any channel and are stored in SQLite
+2. The orchestrator polls for new messages and groups them into tasks via the LLM
+3. Each task gets its own Copilot SDK session with tools and skills
+4. Tasks run in parallel (default: 5 concurrent), results are reported back through channels
+5. Completed tasks are archived to `.cawpilot/archive/`
 
 ## Skills
 
-Skills are modular capabilities loaded at runtime. They follow the [Copilot SDK skill format](https://github.com/github/copilot-sdk/blob/main/docs/features/skills.md) (a directory with a `SKILL.md` file).
+Skills are modular capabilities loaded at runtime. Each skill is a directory with a `SKILL.md` file describing its purpose and instructions.
 
 ### Built-in Skills
 
 | Skill | Description |
 |-------|-------------|
-| **public-tunnel** | Create temporary public tunnels to expose local ports for demos |
+| **github** | GitHub repository operations, PR management |
+| **public-tunnel** | Expose local ports publicly for demos |
+| **skill-creator** | Create new skills interactively |
 
-### Adding Custom Skills
+#### Adding Custom Skills
 
-1. Create a directory under `skills/` with a `SKILL.md` file
-2. Run `cawpilot setup` to enable it
-3. The skill is copied to the workspace and loaded by the agent at runtime
+Bundled skills are limited voluntarily to a minimum, to reduce default expose and keep space for customization.
+You can ask the agent to create new skills on the fly using the built-in `skill-creator` skill.
 
-See `.agents/skills/skill-creator/SKILL.md` for the full skill authoring guide.
+Note that skills aren't limited to development: you can create skills for any workflow: content writing, data analysis, deployment pipelines, or anything else you can describe.
 
 ## Configuration
 
-Configuration is stored in `<workspace>/.cawpilot/config.json` and includes:
+Configuration lives in `<workspace>/.cawpilot/config.json`:
 
-- Connected channels and their credentials
+- Connected channels and credentials
 - Selected repositories
-- Enabled skills
+- Enabled built-in skills
 - Scheduling rules
-- Max task concurrency (default: 5, configurable to any value >= 1)
+- Max task concurrency (default: 5)
 
 ### Persistence
 
-Optionally sync your configuration to a private GitHub repository (default: `<user>/my-cawpilot`). This allows you to:
-- Restore configuration on a fresh install
-- Share config across machines
-- Version-control your setup
+Optionally sync configuration to a private GitHub repository (default: `<user>/my-cawpilot`) to back up, share across machines, and version-control your setup.
 
-### BYOK (Bring Your Own Key)
+## Contributing
 
-cawpilot supports using your own API keys instead of a Copilot subscription. Configure a custom provider in the config file:
-
-```json
-{
-  "provider": {
-    "type": "openai",
-    "baseUrl": "https://api.openai.com/v1",
-    "apiKey": "sk-..."
-  }
-}
-```
-
-> [!NOTE]
-> cawpilot is built on the GitHub Copilot SDK which is currently in **Technical Preview**. APIs may change.
-
-## Docker
-
-Running cawpilot in Docker provides isolation — the agent can only access the mounted workspace, not your system.
-
-### Quick Start with Docker
-
-```bash
-# Build the image
-npm run docker:build
-
-# Run setup interactively
-npm run docker:setup
-
-# Start the bot
-npm run docker:start
-```
-
-### Manual Docker Usage
-
-```bash
-# Build
-docker build -t cawpilot .
-
-# Setup (interactive, with workspace bind mount)
-docker run -it --rm -v ./workspace:/workspace cawpilot setup
-
-# Start (with workspace persistence and port for HTTP API)
-docker run -it --rm \
-  -v ./workspace:/workspace \
-  -p 2243:2243 \
-  cawpilot start
-```
-
-> [!TIP]
-> The workspace is mounted as a bind volume so your configuration, database, archives, and cloned repositories persist across container restarts.
-
-### Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `CAWPILOT_WORKSPACE` | Workspace path inside container (default: `/workspace`) |
-| `GH_TOKEN` | GitHub token for authentication (alternative to `gh auth login`) |
-
-### GitHub Authentication in Docker
-
-Since `gh auth login` is interactive, you can pass a token instead:
-
-```bash
-docker run -it --rm \
-  -v ./workspace:/workspace \
-  -e GH_TOKEN=ghp_your_token_here \
-  cawpilot start
-```
-
-## Post-MVP Roadmap
-
-- 🖥️ Web UI dashboard for configuration and interaction
--  More channels: Slack, Discord, email
-- 🔍 More skills: code review, PR management, CI/CD monitoring
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for local dev setup, coding guidelines, and project structure.
