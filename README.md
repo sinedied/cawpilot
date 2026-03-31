@@ -210,7 +210,7 @@ Skills are modular capabilities loaded at runtime. Each skill is a directory wit
 Bundled skills are limited voluntarily to a minimum, to reduce default exposure and keep space for customization.
 You can ask the agent to find and install skills from the [skills.sh](https://skills.sh/) ecosystem, or create new skills on the fly using the built-in `skill-creator` skill.
 
-Note that skills aren't limited to development: you can create skills for any workflow: content writing, data analysis, deployment pipelines, or anything else you can describe.
+Note that skills aren't limited to development, you can create skills for any workflow: content writing, data analysis, deployment pipelines, or anything else you can describe.
 
 ## Configuration
 
