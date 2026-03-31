@@ -12,7 +12,8 @@
     },
     "ghcr.io/devcontainers/features/github-cli:latest": {},
     "ghcr.io/devcontainers/features/copilot-cli:latest": {},
-    "ghcr.io/azure/azure-dev/azd:latest": {}
+    "ghcr.io/azure/azure-dev/azd:latest": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:latest": {}
   },
 
   // Use 'forwardPorts' to make a list of ports inside the container available locally.
