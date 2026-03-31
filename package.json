@@ -1,7 +1,7 @@
 {
   "name": "cawpilot",
-  "version": "0.1.0",
-  "description": "Your always-on personal assistant built on GitHub Copilot SDK",
+  "version": "0.0.0",
+  "description": "Always-on autonomous agent, powered by GitHub Copilot SDK",
   "type": "module",
   "bin": {
     "cawpilot": "./dist/index.js"
