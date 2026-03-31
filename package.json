@@ -1,6 +1,6 @@
 {
   "name": "cawpilot",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Always-on autonomous agent, powered by GitHub Copilot SDK",
   "type": "module",
   "bin": {
