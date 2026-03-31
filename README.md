@@ -192,6 +192,7 @@ Skills are modular capabilities loaded at runtime. Each skill is a directory wit
 
 | Skill | Description |
 |-------|-------------|
+| **find-skills** | Search and install skills from [skills.sh](https://skills.sh/) |
 | **github** | GitHub repository operations, PR management |
 | **public-tunnel** | Expose local ports publicly for demos |
 | **skill-creator** | Create new skills interactively |
@@ -199,7 +200,7 @@ Skills are modular capabilities loaded at runtime. Each skill is a directory wit
 #### Adding Custom Skills
 
 Bundled skills are limited voluntarily to a minimum, to reduce default expose and keep space for customization.
-You can ask the agent to create new skills on the fly using the built-in `skill-creator` skill.
+You can ask the agent to find and install skills from the [skills.sh](https://skills.sh/) ecosystem, or create new skills on the fly using the built-in `skill-creator` skill.
 
 Note that skills aren't limited to development: you can create skills for any workflow: content writing, data analysis, deployment pipelines, or anything else you can describe.
 
