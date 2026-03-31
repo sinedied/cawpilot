@@ -2,7 +2,7 @@
 
 name: cawpilot
 services:
-  app:
+  cawpilot:
     project: ../..
     host: containerapp
     language: ts
