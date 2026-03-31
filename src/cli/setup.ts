@@ -133,7 +133,7 @@ export async function runSetup(workspacePath: string): Promise<void> {
 
   // Step 5: Skills
   console.log(chalk.bold('\nPick your skills'));
-  const skills = await setupSkills(workspacePath);
+  const skills = await setupSkills(config.skills);
   config.skills = skills;
 
   // Finalize
@@ -278,7 +278,7 @@ async function setupChannels(
   return channels;
 }
 
-async function setupSkills(_workspacePath: string): Promise<string[]> {
+async function setupSkills(existing: string[]): Promise<string[]> {
   const available = listAvailableSkills();
 
   if (available.length === 0) {
@@ -288,7 +288,11 @@ async function setupSkills(_workspacePath: string): Promise<string[]> {
 
   const selected = await checkbox({
     message: 'Select skills to enable:',
-    choices: available.map((s) => ({ name: s, value: s, checked: true })),
+    choices: available.map((s) => ({
+      name: s,
+      value: s,
+      checked: existing.length > 0 ? existing.includes(s) : true,
+    })),
   });
 
   return selected;

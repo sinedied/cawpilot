@@ -136,7 +136,8 @@ export function createSetupRouter(
   // ── Skills ────────────────────────────────────────────
   router.get('/skills', (_req: Request, res: Response) => {
     const skills = listAvailableSkills();
-    res.json({ skills });
+    const config = loadConfig(workspacePath);
+    res.json({ skills, configured: config.skills });
   });
 
   // ── Channels ──────────────────────────────────────────

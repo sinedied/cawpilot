@@ -18,10 +18,12 @@ export class SkillsStep extends LitElement {
 
   private async loadSkills() {
     try {
-      const result = await api<{ skills: string[] }>('/skills');
+      const result = await api<{ skills: string[]; configured: string[] }>('/skills');
       this.available = result.skills;
-      // All enabled by default
-      this.selected = new Set(result.skills);
+      // Pre-select configured skills if any, otherwise all
+      this.selected = new Set(
+        result.configured.length > 0 ? result.configured : result.skills,
+      );
     } catch {
       // Non-critical
     }
