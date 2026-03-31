@@ -99,23 +99,24 @@ module containerAppIdentity 'br/public:avm/res/managed-identity/user-assigned-id
   }
 }
 
-module containerAppsEnvironment 'br/public:avm/ptn/azd/container-apps-stack:0.1.1' = {
+module containerAppsEnvironment 'br/public:avm/ptn/azd/container-apps-stack:0.3.0' = {
   name: 'containerapps'
   scope: resourceGroup
   params: {
     containerAppsEnvironmentName: '${abbrs.appManagedEnvironments}${resourceToken}'
     containerRegistryName: '${abbrs.containerRegistryRegistries}${resourceToken}'
-    logAnalyticsWorkspaceResourceId: monitoring.outputs.logAnalyticsWorkspaceResourceId
+    logAnalyticsWorkspaceName: monitoring.outputs.logAnalyticsWorkspaceName
     appInsightsConnectionString: monitoring.outputs.applicationInsightsConnectionString
     acrSku: 'Basic'
     location: location
+    publicNetworkAccess: 'Enabled'
     acrAdminUserEnabled: true
     zoneRedundant: false
     tags: tags
   }
 }
 
-module containerApp 'br/public:avm/ptn/azd/container-app-upsert:0.1.1' = {
+module containerApp 'br/public:avm/ptn/azd/container-app-upsert:0.3.0' = {
   name: '${cawpilotServiceName}-containerapp'
   scope: resourceGroup
   params: {
@@ -145,7 +146,7 @@ module containerApp 'br/public:avm/ptn/azd/container-app-upsert:0.1.1' = {
     identityPrincipalId: containerAppIdentity.outputs.principalId
     userAssignedIdentityResourceId: containerAppIdentity.outputs.resourceId
     containerCpuCoreCount: '1'
-    containerMemory: '2.0'
+    containerMemory: '2Gi'
     targetPort: 2243
     containerMinReplicas: 1
     containerMaxReplicas: 1
@@ -153,12 +154,18 @@ module containerApp 'br/public:avm/ptn/azd/container-app-upsert:0.1.1' = {
     external: true
     serviceBinds: [
       {
-        name: 'workspace'
-        storageName: 'workspace'
-        storageType: 'AzureFile'
-        mountPath: '/workspace'
+        name: 'storage'
+        serviceId: storage.outputs.resourceId
       }
     ]
+    // volumes: [
+    //   {
+    //     name: 'workspace'
+    //     storageName: 'workspace'
+    //     storageType: 'AzureFile'
+    //     mountPath: '/workspace'
+    //   }
+    // ]
   }
 }
 
