@@ -18,21 +18,19 @@ type DisplayLine = {
   text: string;
 };
 
-/** Flatten messages into single display lines, splitting on newlines. */
-export function flattenMessages(
-  messages: ChatMessage[],
-  maxWidth: number,
-): DisplayLine[] {
+/** Convert messages into display lines, splitting multi-line content. */
+export function toDisplayLines(messages: ChatMessage[]): DisplayLine[] {
   const lines: DisplayLine[] = [];
   for (const msg of messages) {
     const raw = msg.content.split('\n');
     for (const [i, line] of raw.entries()) {
-      const text =
-        line.length > maxWidth ? line.slice(0, maxWidth - 1) + '…' : line;
       if (msg.sender === 'user') {
-        lines.push({ prefix: 'user', text });
+        lines.push({ prefix: 'user', text: line });
       } else {
-        lines.push({ prefix: i === 0 ? 'bot' : 'bot-cont', text });
+        lines.push({
+          prefix: i === 0 ? 'bot' : 'bot-cont',
+          text: line,
+        });
       }
     }
   }
@@ -60,9 +58,7 @@ export function ChatArea({
   width,
   scrollOffset,
 }: ChatAreaProps) {
-  // Border (2) + padding (2) + prefix "◆ " (2) = 6
-  const maxTextWidth = Math.max(width - 6, 10);
-  const allLines = flattenMessages(messages, maxTextWidth);
+  const allLines = toDisplayLines(messages);
   const { start, end } = computeVisibleRange(
     allLines.length,
     height,
@@ -77,13 +73,13 @@ export function ChatArea({
           {line.prefix === 'bot' && (
             <>
               <Text color="magenta">◆ </Text>
-              <Text wrap="truncate">{line.text}</Text>
+              <Text>{line.text}</Text>
             </>
           )}
           {line.prefix === 'bot-cont' && (
             <>
               <Text color="magenta">{'  '}</Text>
-              <Text wrap="truncate">{line.text}</Text>
+              <Text>{line.text}</Text>
             </>
           )}
           {line.prefix === 'user' && (
@@ -91,9 +87,7 @@ export function ChatArea({
               <Text color="green" bold>
                 ›{' '}
               </Text>
-              <Text bold wrap="truncate">
-                {line.text}
-              </Text>
+              <Text bold>{line.text}</Text>
             </>
           )}
         </Box>

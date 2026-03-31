@@ -1,20 +1,20 @@
 import { describe, it, expect } from 'vitest';
 import {
-  flattenMessages,
+  toDisplayLines,
   computeVisibleRange,
   type ChatMessage,
 } from '../../src/ui/chat-area.js';
 
-describe('flattenMessages', () => {
+describe('toDisplayLines', () => {
   it('splits a single bot message with no newlines into one line', () => {
     const msgs: ChatMessage[] = [{ sender: 'bot', content: 'hello' }];
-    const lines = flattenMessages(msgs, 80);
+    const lines = toDisplayLines(msgs);
     expect(lines).toEqual([{ prefix: 'bot', text: 'hello' }]);
   });
 
   it('splits a bot message with newlines into multiple lines', () => {
     const msgs: ChatMessage[] = [{ sender: 'bot', content: 'line1\nline2\nline3' }];
-    const lines = flattenMessages(msgs, 80);
+    const lines = toDisplayLines(msgs);
     expect(lines).toEqual([
       { prefix: 'bot', text: 'line1' },
       { prefix: 'bot-cont', text: 'line2' },
@@ -24,24 +24,23 @@ describe('flattenMessages', () => {
 
   it('marks user messages with user prefix', () => {
     const msgs: ChatMessage[] = [{ sender: 'user', content: 'hi\nthere' }];
-    const lines = flattenMessages(msgs, 80);
+    const lines = toDisplayLines(msgs);
     expect(lines).toEqual([
       { prefix: 'user', text: 'hi' },
       { prefix: 'user', text: 'there' },
     ]);
   });
 
-  it('truncates lines longer than maxWidth', () => {
-    const msgs: ChatMessage[] = [{ sender: 'bot', content: 'a'.repeat(100) }];
-    const lines = flattenMessages(msgs, 20);
+  it('does not truncate long lines (Ink handles wrapping)', () => {
+    const msgs: ChatMessage[] = [{ sender: 'bot', content: 'a'.repeat(50) }];
+    const lines = toDisplayLines(msgs);
     expect(lines).toHaveLength(1);
-    expect(lines[0].text).toHaveLength(20);
-    expect(lines[0].text.endsWith('…')).toBe(true);
+    expect(lines[0].text).toBe('a'.repeat(50));
   });
 
   it('does not truncate lines at exactly maxWidth', () => {
     const msgs: ChatMessage[] = [{ sender: 'bot', content: 'a'.repeat(20) }];
-    const lines = flattenMessages(msgs, 20);
+    const lines = toDisplayLines(msgs);
     expect(lines[0].text).toBe('a'.repeat(20));
   });
 
@@ -50,7 +49,7 @@ describe('flattenMessages', () => {
       { sender: 'user', content: 'question' },
       { sender: 'bot', content: 'answer' },
     ];
-    const lines = flattenMessages(msgs, 80);
+    const lines = toDisplayLines(msgs);
     expect(lines).toEqual([
       { prefix: 'user', text: 'question' },
       { prefix: 'bot', text: 'answer' },
@@ -59,13 +58,13 @@ describe('flattenMessages', () => {
 
   it('handles empty message content', () => {
     const msgs: ChatMessage[] = [{ sender: 'bot', content: '' }];
-    const lines = flattenMessages(msgs, 80);
+    const lines = toDisplayLines(msgs);
     expect(lines).toEqual([{ prefix: 'bot', text: '' }]);
   });
 
   it('handles message with only newlines', () => {
     const msgs: ChatMessage[] = [{ sender: 'bot', content: '\n\n' }];
-    const lines = flattenMessages(msgs, 80);
+    const lines = toDisplayLines(msgs);
     expect(lines).toHaveLength(3);
     expect(lines[0].prefix).toBe('bot');
     expect(lines[1].prefix).toBe('bot-cont');
@@ -73,7 +72,7 @@ describe('flattenMessages', () => {
   });
 
   it('handles empty messages array', () => {
-    const lines = flattenMessages([], 80);
+    const lines = toDisplayLines([]);
     expect(lines).toEqual([]);
   });
 });
