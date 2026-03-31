@@ -15,7 +15,9 @@ const SETUP_PORT = 2243;
 export async function runSetupServer(workspacePath: string): Promise<void> {
   const setupKey = process.env.CAWPILOT_WEBSETUP_KEY;
   if (!setupKey) {
-    throw new Error('CAWPILOT_WEBSETUP_KEY environment variable is required for web setup');
+    throw new Error(
+      'CAWPILOT_WEBSETUP_KEY environment variable is required for web setup',
+    );
   }
 
   mkdirSync(workspacePath, { recursive: true });
