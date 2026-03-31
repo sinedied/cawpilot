@@ -23,7 +23,6 @@ const FIXED_LINES = 7;
 
 type AppProps = {
   db: Database.Database;
-  startTime: Date;
   onInput: (text: string) => void;
   bootstrapCompleted: boolean;
 };
@@ -51,19 +50,7 @@ function useTerminalSize() {
   return size;
 }
 
-function formatUptime(ms: number): string {
-  const seconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-
-  if (days > 0) return `${days}d ${hours % 24}h`;
-  if (hours > 0) return `${hours}h ${minutes % 60}m`;
-  if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-  return `${seconds}s`;
-}
-
-export function App({ db, startTime, onInput, bootstrapCompleted }: AppProps) {
+export function App({ db, onInput, bootstrapCompleted }: AppProps) {
   const { columns, rows } = useTerminalSize();
   const [notification, setNotification] = useState('');
   const [scrollOffset, setScrollOffset] = useState(0);
@@ -76,7 +63,6 @@ export function App({ db, startTime, onInput, bootstrapCompleted }: AppProps) {
     },
   ]);
   const [stats, setStats] = useState({
-    uptime: '0s',
     messageCount: 0,
     active: 0,
     done: 0,
@@ -89,17 +75,14 @@ export function App({ db, startTime, onInput, bootstrapCompleted }: AppProps) {
     const counts = getTaskCounts(db);
     const messageCount = getMessageCount(db);
     const scheduledTasks = getAllScheduledTasks(db);
-    const uptime = formatUptime(Date.now() - startTime.getTime());
-
     setStats({
-      uptime,
       messageCount,
       active: counts['in-progress'],
       done: counts.completed + counts.cancelled,
       failed: counts.failed,
       scheduled: scheduledTasks.length,
     });
-  }, [db, startTime]);
+  }, [db]);
 
   useEffect(() => {
     refreshStats();

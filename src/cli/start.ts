@@ -231,7 +231,6 @@ export async function runStart(
     const inkApp = render(
       React.createElement(App, {
         db,
-        startTime,
         onInput: handleInput,
         bootstrapCompleted: config.bootstrapCompleted,
       }),

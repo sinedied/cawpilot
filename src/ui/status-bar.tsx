@@ -3,7 +3,6 @@ import { Box, Text, Spacer } from 'ink';
 import Gradient from 'ink-gradient';
 
 type StatusBarProps = {
-  uptime: string;
   messageCount: number;
   active: number;
   done: number;
@@ -13,7 +12,6 @@ type StatusBarProps = {
 };
 
 export function StatusBar({
-  uptime,
   messageCount,
   active,
   done,
@@ -27,8 +25,6 @@ export function StatusBar({
         <Text bold>cawpilot</Text>
       </Gradient>
       <Spacer />
-      <Text dimColor>{uptime}</Text>
-      <Text dimColor> · </Text>
       <Text color="cyan">✉ {messageCount}</Text>
       <Text dimColor> · </Text>
       <Text color="yellow">⚡ {active}</Text>
