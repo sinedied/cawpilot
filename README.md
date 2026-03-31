@@ -6,6 +6,9 @@
 
 **Always-on autonomous agent, powered by GitHub Copilot SDK.**
 
+[![Build Status](https://img.shields.io/github/actions/workflow/status/sinedied/cawpilot/ci.yml?style=flat-square&logo=github)](https://github.com/sinedied/cawpilot/actions)
+[![npm version](https://img.shields.io/npm/v/cawpilot?style=flat-square&logo=npm)](https://www.npmjs.com/package/cawpilot)
+[![Docker](https://img.shields.io/badge/Docker-ghcr.io-2496ED?style=flat-square&logo=docker&logoColor=white)](https://github.com/sinedied/cawpilot/pkgs/container/cawpilot)
 [![Node.js](https://img.shields.io/badge/Node.js-24%2B-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Copilot SDK](https://img.shields.io/badge/Copilot_SDK-Technical_Preview-8957E5?style=flat-square&logo=github&logoColor=white)](https://github.com/github/copilot-sdk)
@@ -61,17 +64,18 @@ cawpilot start
 Everything is bundled inside the image — no Node.js, `gh`, or Copilot CLI install needed on your machine.
 
 ```bash
-# Build the image
-docker build -t cawpilot .
+docker pull ghcr.io/sinedied/cawpilot:latest
+```
 
+```bash
 # Run interactive setup (workspace is persisted via bind mount)
-docker run -it --rm -v ./workspace:/workspace cawpilot setup
+docker run -it --rm -v ./workspace:/workspace ghcr.io/sinedied/cawpilot setup
 
 # Start the bot
 docker run -it --rm \
   -v ./workspace:/workspace \
   -p 2243:2243 \
-  cawpilot start
+  ghcr.io/sinedied/cawpilot start
 ```
 
 > [!TIP]
@@ -86,7 +90,7 @@ Since `gh auth login` is interactive, pass a token via environment variable inst
 docker run -it --rm \
   -v ./workspace:/workspace \
   -e GH_TOKEN=ghp_your_token_here \
-  cawpilot start
+  ghcr.io/sinedied/cawpilot start
 ```
 </details>
 
@@ -101,7 +105,7 @@ cd cloud/azure
 azd up
 ```
 
-After deployment, `azd` outputs a **setup URL** — open it in your browser to complete the setup wizard (GitHub auth, channels, model, skills). The container restarts automatically into normal mode once setup is done.
+After deployment, `azd env get-value SETUP_URL` outputs a **setup URL** — open it in your browser to complete the setup wizard (GitHub auth, channels, model, skills). The container restarts automatically into normal mode once setup is done.
 
 <details>
 <summary>Optional: pre-configure secrets before deployment</summary>

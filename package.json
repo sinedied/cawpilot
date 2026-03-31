@@ -33,6 +33,30 @@
     "github"
   ],
   "license": "MIT",
+  "author": "sinedied",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sinedied/cawpilot.git"
+  },
+  "homepage": "https://github.com/sinedied/cawpilot",
+  "bugs": {
+    "url": "https://github.com/sinedied/cawpilot/issues"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "templates"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "release": {
+    "extends": "semantic-release-npm-github",
+    "branches": [
+      "main"
+    ]
+  },
   "dependencies": {
     "@github/copilot-sdk": "^0.1.33-preview.3",
     "@inquirer/prompts": "^8.3.2",
@@ -57,6 +81,8 @@
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.0",
+    "semantic-release": "^25.0.3",
+    "semantic-release-npm-github": "^6.0.0",
     "xo": "^2.0.2"
   },
   "xo": {

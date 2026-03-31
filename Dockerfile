@@ -1,9 +1,11 @@
 # --- Build stage ---
 FROM node:24 AS build
+ARG APP_VERSION=0.0.0-dev
 
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci --cache /tmp/npm-cache && rm -rf /tmp/npm-cache
+RUN npm pkg set version="$APP_VERSION" && \
+    npm ci --cache /tmp/npm-cache && rm -rf /tmp/npm-cache
 
 COPY web/package.json web/package-lock.json* ./web/
 RUN cd web && npm ci --cache /tmp/npm-cache && rm -rf /tmp/npm-cache
