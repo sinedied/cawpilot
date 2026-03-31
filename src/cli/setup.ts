@@ -478,7 +478,9 @@ function persistGitHubToken(workspacePath: string): void {
     if (token) {
       saveEnvValue(workspacePath, 'GH_TOKEN', token);
       console.log(
-        chalk.dim('  GitHub token saved for future container sessions.'),
+        chalk.dim(
+          '  Authentication credentials saved in .cawpilot/.env',
+        ),
       );
     }
   } catch {
