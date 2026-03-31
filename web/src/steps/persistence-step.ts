@@ -205,7 +205,7 @@ export class PersistenceStep extends LitElement {
       ${this.enabled
         ? html`
             <div class="field">
-              <label>Repository name</label>
+              <label>Repository name (user/repo)</label>
               <div style="display:flex;gap:var(--cp-space-sm)">
                 <input
                   type="text"

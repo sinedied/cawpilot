@@ -176,7 +176,7 @@ async function promptPersistenceRepo(
   while (true) {
     // eslint-disable-next-line no-await-in-loop
     repoName = await input({
-      message: 'Repository name:',
+      message: 'Repository name (user/repo):',
       default: repoName || config.persistence.repo || `${user}/my-cawpilot`,
       validate: (value) =>
         /^(?:[\w.\-]+)\/(?:[\w.\-]+)$/v.test(value.trim()) ||
